@@ -20,44 +20,60 @@
   .wrap{max-width:1160px;margin:0 auto;padding:28px 32px 60px;}
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
   .brand{display:flex;align-items:center;gap:12px;}
-  .brand-mark{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--blue-deep));display:flex;align-items:center;justify-content:center;}
-  .brand-mark svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.7;}
+  .brand-mark{width:42px;height:42px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(28,91,176,0.18);}
+  .brand-mark img{width:100%;height:100%;object-fit:cover;}
   .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px;margin:0;}
   .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.05em;text-transform:uppercase;margin:0;}
-  .btn{border:none;font-weight:600;font-size:13px;padding:9px 16px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .btn{border:none;font-weight:600;font-size:13px;padding:9px 16px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:transform .15s ease, box-shadow .15s ease, background-color .15s ease;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn:active{transform:translateY(0);}
   .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-deep));color:#fff;box-shadow:0 6px 16px rgba(47,125,225,.22);}
+  .btn-primary:hover{box-shadow:0 8px 20px rgba(47,125,225,.32);}
   .btn-ghost{background:var(--blue-soft);color:var(--blue-deep);}
+  .btn-ghost:hover{background:#dcebfc;}
   .tabs{display:flex;gap:8px;margin-bottom:20px;}
-  .tab{padding:8px 14px;border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-mid);}
+  .tab{padding:8px 14px;border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-mid);transition:background-color .15s ease, color .15s ease;}
+  .tab:hover{background:rgba(47,125,225,.06);color:var(--blue-deep);}
   .tab.active{background:var(--card);color:var(--blue-deep);border:1px solid var(--border);}
   .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px;}
-  .metric{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+  .metric{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;transition:transform .15s ease, box-shadow .15s ease;}
+  .metric:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(21,26,35,.06);}
   .metric .label{font-size:12px;color:var(--text-mid);margin:0 0 6px;}
   .metric .value{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;margin:0;}
   .metric.due .value{color:var(--red);} .metric.ok .value{color:var(--green);}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:18px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:18px;transition:box-shadow .15s ease;}
+  .panel:hover{box-shadow:0 6px 18px rgba(21,26,35,.05);}
   .panel h3{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;margin:0 0 12px;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;color:var(--text-lo);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:0 8px 8px 0;}
   td{padding:9px 8px 9px 0;border-top:1px solid var(--border);}
   td.muted{color:var(--text-mid);} td.amt{text-align:right;font-weight:600;color:var(--blue-deep);}
-  input,select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;}
+  tbody tr{transition:background-color .12s ease;}
+  tbody tr:hover{background:rgba(47,125,225,.035);}
+  input,select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;transition:border-color .15s ease, box-shadow .15s ease;}
+  input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.12);}
   label{font-size:12px;color:var(--text-mid);display:block;margin:0 0 4px;}
   .field{margin-bottom:12px;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .modal-bg{position:fixed;inset:0;background:rgba(15,20,30,.35);display:none;align-items:center;justify-content:center;z-index:10;}
-  .modal-bg.open{display:flex;}
-  .modal{background:#fff;border-radius:16px;padding:22px;width:380px;max-height:86vh;overflow:auto;}
+  .modal-bg.open{display:flex;animation:fadeIn .15s ease;}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}
+  .modal{background:#fff;border-radius:16px;padding:22px;width:380px;max-height:86vh;overflow:auto;animation:popIn .18s ease;}
   .modal h3{font-family:'Space Grotesk',sans-serif;margin:0 0 14px;}
   .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
   #receiptCanvas{display:none;}
   .receipt-actions{display:flex;gap:8px;margin-top:14px;}
-  .wa-btn{width:28px;height:28px;border-radius:8px;background:var(--blue-soft);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .wa-btn{width:28px;height:28px;border-radius:8px;background:var(--blue-soft);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s ease, background-color .15s ease;}
+  .wa-btn:hover{transform:scale(1.08);background:#dcebfc;}
   .wa-btn svg{width:14px;height:14px;stroke:var(--blue-deep);fill:none;stroke-width:2;}
+  .row-remove{width:24px;height:24px;border-radius:7px;border:none;background:transparent;color:var(--text-lo);font-size:16px;line-height:1;cursor:pointer;transition:background-color .15s ease, color .15s ease;}
+  .row-remove:hover{background:var(--red-soft);color:var(--red);}
   .due-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--border);}
   .due-row:first-of-type{border-top:none;}
   #configWarn{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none;}
-  #aiToggle{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-deep));border:none;box-shadow:0 8px 20px rgba(47,125,225,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20;}
+  #aiToggle{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-deep));border:none;box-shadow:0 8px 20px rgba(47,125,225,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20;transition:transform .15s ease, box-shadow .15s ease;}
+  #aiToggle:hover{transform:scale(1.06) translateY(-2px);box-shadow:0 10px 24px rgba(47,125,225,.4);}
   #aiToggle svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.8;}
   #aiPanel{position:fixed;bottom:88px;right:24px;width:320px;max-height:420px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.12);display:none;flex-direction:column;z-index:20;}
   #aiPanel.open{display:flex;}
@@ -76,7 +92,7 @@
 
   <div class="topbar">
     <div class="brand">
-      <div class="brand-mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></div>
+      <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo"></div>
       <div><p class="brand-name">SVCN</p><p class="brand-sub">ERP</p></div>
     </div>
     <div style="display:flex;gap:10px;">
@@ -88,6 +104,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
     <div class="tab" data-tab="customers" onclick="switchTab('customers')">Customers</div>
+    <div class="tab" data-tab="reminders" onclick="switchTab('reminders')">Reminders</div>
     <div class="tab" data-tab="transactions" onclick="switchTab('transactions')">Transactions</div>
     <div class="tab" data-tab="money" onclick="switchTab('money')">Money</div>
     <div class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</div>
@@ -128,8 +145,22 @@
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importCustomersExcel(event)">
       </div>
       <table>
-        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th></tr>
+        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th></th></tr>
         <tbody id="customerRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-reminders" style="display:none;">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <h3 style="margin:0;">This month's billing cycle</h3>
+        <span class="hint" id="cycleLabel" style="margin:0;"></span>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">Every active customer for the current month — send a reminder to anyone still unpaid with one tap.</p>
+      <table>
+        <tr><th>Customer</th><th>Bill</th><th>Status</th><th></th></tr>
+        <tbody id="reminderRows"></tbody>
       </table>
     </div>
   </div>
@@ -270,13 +301,14 @@ function initSupabase(){
   return true;
 }
 
-const TABS = ['dashboard','customers','transactions','money','settings'];
+const TABS = ['dashboard','customers','reminders','transactions','money','settings'];
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===name) ? '' : 'none'; });
   if (name==='transactions') loadTransactions();
   if (name==='money') loadMoneyAllocation();
   if (name==='settings') loadTemplates();
+  if (name==='reminders') loadReminders();
 }
 
 function openModal(id){ document.getElementById(id+'-bg').classList.add('open'); }
@@ -290,11 +322,33 @@ async function loadCustomers(){
   rows.innerHTML = data.map(c => `<tr>
     <td class="muted">${c.customer_code}</td><td>${c.name}</td>
     <td class="muted">${c.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
-    <td class="muted">${c.phone||''}</td><td class="amt">${fmt(c.monthly_bill)}</td></tr>`).join('');
+    <td class="muted">${c.phone||''}</td><td class="amt">${fmt(c.monthly_bill)}</td>
+    <td style="text-align:right;"><button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button></td></tr>`).join('');
   const sel = document.getElementById('p_customer');
   sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
   document.getElementById('mCustomers').textContent = data.length;
   onPaymentCustomerChange();
+}
+
+async function removeCustomer(id, name){
+  if (!confirm(`Remove ${name}? Their payment history is kept, but they'll no longer appear in customer lists or dues.`)) return;
+  const { error } = await db.from('customers').update({ status:'inactive' }).eq('id', id);
+  if (error) { alert(error.message); return; }
+  loadCustomers(); loadDashboard();
+}
+
+async function loadReminders(){
+  document.getElementById('cycleLabel').textContent = new Date().toLocaleString('en', { month:'long', year:'numeric' });
+  const { data } = await db.from('customer_dues').select('*').order('name');
+  document.getElementById('reminderRows').innerHTML = (data||[]).map(d=>{
+    const paid = d.dues <= 0;
+    return `<tr>
+      <td>${d.name}</td>
+      <td class="muted">${fmt(d.monthly_bill)}</td>
+      <td>${paid ? '<span style="color:var(--green);font-weight:600;">Paid</span>' : `<span style="color:var(--red);font-weight:600;">Due ${fmt(d.dues)}</span>`}</td>
+      <td style="text-align:right;">${paid ? '' : `<a class="wa-btn" href="${waLink(d.phone, buildReminderMessage(d.name, d.dues))}" target="_blank" title="Send reminder"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`}</td>
+    </tr>`;
+  }).join('') || '<tr><td class="hint" colspan="4">No active customers yet.</td></tr>';
 }
 
 function onPaymentCustomerChange(){
@@ -458,6 +512,15 @@ function exportCustomersExcel(){
   XLSX.writeFile(wb, 'svcn-customers.xlsx');
 }
 
+function findField(row, patterns){
+  const keys = Object.keys(row);
+  for (const p of patterns){
+    const k = keys.find(key => key.toLowerCase().replace(/[^a-z]/g,'').includes(p));
+    if (k) return row[k];
+  }
+  return '';
+}
+
 async function importCustomersExcel(event){
   const file = event.target.files[0];
   if (!file) return;
@@ -465,22 +528,32 @@ async function importCustomersExcel(event){
   const wb = XLSX.read(buf, { type:'array' });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws);
-  const payload = rows.map(r => ({
-    customer_code: String(r['Customer ID']||r['IP']||'').trim(),
-    name: String(r['Name']||r['Client Name']||'').trim(),
-    package_type: /dish/i.test(r['Package']||'') ? 'wifi_dish' : 'wifi',
-    phone: String(r['Phone']||r['Phone Number']||'').trim(),
-    ip_address: String(r['IP Address']||r['IP']||'').trim(),
-    address: String(r['Address']||r['Client Address']||'').trim(),
-    monthly_bill: Number(r['Monthly Bill']||r['Client Bill']||0),
-    portal_password: String(r['Customer ID']||r['IP']||'').trim()
-  })).filter(r => r.customer_code && r.name);
-  if (!payload.length){ alert('No valid rows found — check the column headers match the template.'); return; }
-  const { error } = await db.from('customers').insert(payload);
+  const seen = new Set();
+  const dupes = [];
+  const payload = rows.map(r => {
+    const code = String(findField(r,['customerid','ip'])||'').trim();
+    if (code){ if (seen.has(code)) dupes.push(code); seen.add(code); }
+    return {
+      customer_code: code,
+      name: String(findField(r,['clientname','name'])||'').trim(),
+      package_type: /dish/i.test(findField(r,['package'])||'') ? 'wifi_dish' : 'wifi',
+      phone: String(findField(r,['phone','contact'])||'').trim(),
+      ip_address: String(findField(r,['ipaddress','ip'])||'').trim(),
+      address: String(findField(r,['clientaddress','address'])||'').trim(),
+      monthly_bill: parseFloat(((String(findField(r,['clientbill','monthlybill','bill'])||'0')).match(/[\d.]+/)||['0'])[0]) || 0,
+      portal_password: code
+    };
+  }).filter(r => r.customer_code && r.name);
+  const byCode = new Map();
+  payload.forEach(r => byCode.set(r.customer_code, r)); // later rows overwrite earlier ones with the same code
+  const deduped = [...byCode.values()];
+  if (!deduped.length){ alert('No valid rows found — check the column headers match the template.'); return; }
+  const { error } = await db.from('customers').upsert(deduped, { onConflict: 'customer_code' });
   if (error) { alert(error.message); return; }
   event.target.value = '';
   loadCustomers();
-  alert(`Imported ${payload.length} customers.`);
+  const dupeNote = dupes.length ? `\n\nNote: these IDs appeared more than once in your sheet, so only the last row for each was kept: ${[...new Set(dupes)].join(', ')}` : '';
+  alert(`Imported ${deduped.length} customers.${dupeNote}`);
 }
 
 let trendChartInstance = null;
