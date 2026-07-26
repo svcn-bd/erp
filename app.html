@@ -78,6 +78,13 @@
   .wa-btn svg{width:14px;height:14px;stroke:var(--blue-deep);fill:none;stroke-width:2;}
   .row-remove{width:26px;height:26px;border-radius:7px;border:none;background:transparent;color:var(--text-lo);font-size:17px;line-height:1;cursor:pointer;transition:background-color .15s ease, color .15s ease;}
   .row-remove:hover{background:var(--red-soft);color:var(--red);}
+  .pill{font-size:11px;padding:4px 11px;border-radius:20px;font-weight:600;white-space:nowrap;}
+  .pill.paid{background:var(--green-soft);color:var(--green);}
+  .pill.due{background:var(--red-soft);color:var(--red);}
+  .tab[data-tab="customers"].active{color:var(--blue-deep);}
+  .tab[data-tab="reminders"].active{color:var(--red);}
+  .tab[data-tab="transactions"].active{color:var(--amber);}
+  .tab[data-tab="money"].active{color:var(--green);}
   .due-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);}
   .due-row:first-of-type{border-top:none;}
   #configWarn{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none;}
@@ -172,7 +179,7 @@
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importCustomersExcel(event)">
       </div>
       <div class="table-wrap"><table>
-        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th></th></tr>
+        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th>Status</th><th></th></tr>
         <tbody id="customerRows"></tbody>
       </table></div>
     </div>
@@ -235,6 +242,14 @@
   </div>
 
   <div id="tab-settings" style="display:none;">
+    <div class="panel">
+      <h3>Business contact numbers</h3>
+      <div class="row">
+        <div class="field"><label>Customer support (technical)</label><input value="01686023434" readonly></div>
+        <div class="field"><label>Administrative (billing)</label><input value="01842292646" readonly></div>
+      </div>
+      <p class="hint" style="margin-top:0;">These power the WhatsApp support buttons in the customer portal.</p>
+    </div>
     <div class="panel">
       <h3>WhatsApp message templates</h3>
       <div class="field"><label>Payment confirmation</label><textarea id="t_payment" rows="3" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;"></textarea></div>
@@ -345,12 +360,19 @@ async function loadCustomers(){
   const { data, error } = await db.from('customers').select('*').eq('status','active').order('name');
   if (error) { console.error(error); return; }
   customersCache = data;
+  const { data: duesData } = await db.from('customer_dues').select('id,dues');
+  const duesMap = new Map((duesData||[]).map(d => [d.id, d.dues]));
   const rows = document.getElementById('customerRows');
-  rows.innerHTML = data.map(c => `<tr>
+  rows.innerHTML = data.map(c => {
+    const due = duesMap.get(c.id) || 0;
+    const statusCell = due > 0 ? `<span class="pill due">Due ${fmt(due)}</span>` : `<span class="pill paid">Paid</span>`;
+    return `<tr>
     <td class="muted">${c.customer_code}</td><td>${c.name}</td>
     <td class="muted">${c.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
     <td class="muted">${c.phone||''}</td><td class="amt">${fmt(c.monthly_bill)}</td>
-    <td style="text-align:right;"><button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button></td></tr>`).join('');
+    <td>${statusCell}</td>
+    <td style="text-align:right;"><button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button></td></tr>`;
+  }).join('');
   const sel = document.getElementById('p_customer');
   sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
   document.getElementById('mCustomers').textContent = data.length;
