@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVCN — Customer Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#f2f6fc; --card:#ffffff; --blue:#2f7de1; --blue-soft:#eaf2fd; --blue-deep:#1c5bb0; --blue-pale:#dceafd;
+    --text-hi:#151a23; --text-mid:#6b7686; --text-lo:#9aa4b2; --border:#e7ebf1;
+    --red:#e0503f; --red-soft:#fbeae7; --green:#1f9d63; --green-soft:#e7f7ef;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-hi);-webkit-font-smoothing:antialiased;min-height:100vh;}
+  .hero-band{height:150px;background:linear-gradient(120deg,#e7f1fd,#f2f6fc 60%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;}
+  .wrap{max-width:420px;margin:0 auto;padding:40px 16px 60px;position:relative;z-index:1;}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;justify-content:center;}
+  .brand-mark{width:46px;height:46px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(28,91,176,.22);background:linear-gradient(135deg,var(--blue),var(--blue-deep));flex-shrink:0;}
+  .brand-mark img{width:100%;height:100%;object-fit:cover;}
+  .brand-mark .fallback{color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;}
+  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;margin:0;}
+  .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.05em;text-transform:uppercase;margin:0;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:16px;transition:box-shadow .15s ease;}
+  .panel:hover{box-shadow:0 8px 22px rgba(21,26,35,.06);}
+  h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:0 0 14px;}
+  label{font-size:12px;color:var(--text-mid);display:block;margin:0 0 5px;font-weight:500;}
+  .field{margin-bottom:13px;}
+  input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;transition:border-color .15s ease, box-shadow .15s ease;}
+  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.14);}
+  .btn{border:none;font-weight:600;font-size:13px;padding:11px 18px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;transition:transform .15s ease, box-shadow .15s ease;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-deep));color:#fff;box-shadow:0 6px 16px rgba(47,125,225,.28);}
+  .btn-ghost{background:var(--blue-soft);color:var(--blue-deep);}
+  .error{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+  .status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .badge{font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600;}
+  .badge.paid{background:var(--green-soft);color:var(--green);}
+  .badge.due{background:var(--red-soft);color:var(--red);}
+  .detail-grid{display:flex;gap:22px;flex-wrap:wrap;}
+  .detail-grid .k{font-size:12px;color:var(--text-mid);margin:0;}
+  .detail-grid .v{font-size:14px;margin:2px 0 0;font-weight:500;}
+  .hist-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--border);}
+  .hist-row:first-of-type{border-top:none;}
+  .hist-row .m{font-size:13px;margin:0;}
+  .hist-row .meth{font-size:11px;color:var(--text-lo);margin:0;}
+  .hist-row .amt{font-size:13px;font-weight:600;}
+  .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
+  #logoutBtn{background:none;border:none;color:var(--text-lo);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
+  #configWarn{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="hero-band"></div>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:'SV'}))"></div>
+    <div><p class="brand-name" style="margin:0;">Satellite Vision</p><p class="brand-sub" style="margin:0;">Customer portal</p></div>
+  </div>
+
+  <div id="configWarn" style="display:none;">Supabase URL/key not set — edit the CONFIG block near the top of the &lt;script&gt; in this file, then reload.</div>
+
+  <div id="loginView" class="panel">
+    <h3>Log in</h3>
+    <div class="field"><label>Customer ID</label><input id="loginCode" placeholder="e.g. RASV042" autocapitalize="characters"></div>
+    <div class="field"><label>Password</label><input id="loginPass" type="password"></div>
+    <button class="btn btn-primary" onclick="login()">Log in</button>
+    <p class="error" id="loginError">Incorrect customer ID or password.</p>
+    <p class="hint">Your customer ID is your username. Your password was originally the same as your ID — you can change it below once logged in.</p>
+  </div>
+
+  <div id="portalView" style="display:none;">
+    <div class="panel">
+      <div class="status-row">
+        <h3 style="margin:0;">Hello, <span id="custName"></span></h3>
+        <span class="badge" id="statusBadge"></span>
+      </div>
+      <div class="detail-grid">
+        <div><p class="k">Customer ID</p><p class="v" id="custCode"></p></div>
+        <div><p class="k">Package</p><p class="v" id="custPackage"></p></div>
+        <div><p class="k">Monthly bill</p><p class="v" id="custBill"></p></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Payment history</h3>
+      <div id="histList"></div>
+    </div>
+
+    <div class="panel">
+      <a class="btn btn-primary" id="supportBtn" href="#" target="_blank" style="text-decoration:none;margin-bottom:10px;">Contact support on WhatsApp</a>
+      <button class="btn btn-ghost" onclick="openChangePass()">Change password</button>
+    </div>
+
+    <div class="panel" id="changePassPanel" style="display:none;">
+      <h3>Change password</h3>
+      <div class="field"><label>New password</label><input id="newPass" type="password"></div>
+      <button class="btn btn-primary" onclick="changePassword()">Save new password</button>
+      <p class="error" id="passError">Please enter a new password.</p>
+    </div>
+
+    <p style="text-align:center;"><button id="logoutBtn" onclick="logout()">Log out</button></p>
+  </div>
+
+</div>
+
+<script>
+// ====== CONFIG — same Supabase project as the ERP ======
+const SUPABASE_URL = 'https://aitgxtutqgryyvqgxelh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGd4dHV0cWdyeXl2cWd4ZWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MjkyMTIsImV4cCI6MjEwMDUwNTIxMn0.qoYbGI7KMSmEvEu3C_GWGTX6Ccz8qZUhmDWhR02g9yw';
+const SUPPORT_PHONE = ''; // your business WhatsApp number, digits only, e.g. '8801XXXXXXXXX'
+// =========================================================
+
+let db = null;
+let currentCustomer = null;
+
+function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
+
+function initSupabase(){
+  const looksConfigured = SUPABASE_URL.startsWith('https://') && SUPABASE_URL.length > 20 && SUPABASE_ANON_KEY.length > 50;
+  if (!looksConfigured){ document.getElementById('configWarn').style.display = 'block'; return false; }
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+
+async function login(){
+  const code = document.getElementById('loginCode').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  document.getElementById('loginError').style.display = 'none';
+  if (!code || !pass) return;
+  const { data, error } = await db.from('customers').select('*').eq('customer_code', code).eq('portal_password', pass).eq('status','active').maybeSingle();
+  if (error || !data){ document.getElementById('loginError').style.display = 'block'; return; }
+  currentCustomer = data;
+  localStorage.setItem('svcn_portal_code', code);
+  showPortal();
+}
+
+function logout(){
+  currentCustomer = null;
+  localStorage.removeItem('svcn_portal_code');
+  document.getElementById('portalView').style.display = 'none';
+  document.getElementById('loginView').style.display = '';
+  document.getElementById('loginPass').value = '';
+}
+
+async function showPortal(){
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('portalView').style.display = '';
+
+  const { data: dues } = await db.from('customer_dues').select('*').eq('id', currentCustomer.id).maybeSingle();
+  const isPaid = !dues || dues.dues <= 0;
+
+  document.getElementById('custName').textContent = currentCustomer.name;
+  document.getElementById('custCode').textContent = currentCustomer.customer_code;
+  document.getElementById('custPackage').textContent = currentCustomer.package_type === 'wifi_dish' ? 'Wifi + Dish' : 'Wifi';
+  document.getElementById('custBill').textContent = fmt(currentCustomer.monthly_bill);
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = isPaid ? 'Paid' : `Due ${fmt(dues.dues)}`;
+  badge.className = 'badge ' + (isPaid ? 'paid' : 'due');
+
+  const phone = (SUPPORT_PHONE || currentCustomer.phone || '').replace(/[^0-9]/g,'');
+  const msg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I need some help with my connection.`);
+  document.getElementById('supportBtn').href = `https://wa.me/${phone}?text=${msg}`;
+
+  const { data: history } = await db.from('payments').select('*').eq('customer_id', currentCustomer.id).order('billing_month', { ascending:false }).limit(12);
+  document.getElementById('histList').innerHTML = (history||[]).map(p=>{
+    const monthLabel = new Date(p.billing_month).toLocaleString('en', { month:'long', year:'numeric' });
+    return `<div class="hist-row">
+      <div><p class="m">${monthLabel}</p><p class="meth">${p.method}</p></div>
+      <p class="amt">${fmt(p.amount)}</p>
+    </div>`;
+  }).join('') || '<p class="hint">No payments recorded yet.</p>';
+}
+
+function openChangePass(){
+  const p = document.getElementById('changePassPanel');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+
+async function changePassword(){
+  const val = document.getElementById('newPass').value;
+  document.getElementById('passError').style.display = 'none';
+  if (!val){ document.getElementById('passError').style.display = 'block'; return; }
+  const { error } = await db.from('customers').update({ portal_password: val }).eq('id', currentCustomer.id);
+  if (error){ alert(error.message); return; }
+  document.getElementById('newPass').value = '';
+  document.getElementById('changePassPanel').style.display = 'none';
+  alert('Password updated.');
+}
+
+async function tryResumeSession(){
+  const savedCode = localStorage.getItem('svcn_portal_code');
+  if (!savedCode) return;
+  const { data } = await db.from('customers').select('*').eq('customer_code', savedCode).eq('status','active').maybeSingle();
+  if (data){ currentCustomer = data; showPortal(); }
+}
+
+if (initSupabase()){
+  tryResumeSession();
+}
+</script>
+</body>
+</html>
