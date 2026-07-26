@@ -5,51 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SVCN — Customer Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#f2f6fc; --card:#ffffff; --blue:#2f7de1; --blue-soft:#eaf2fd; --blue-deep:#1c5bb0; --blue-pale:#dceafd;
+    --bg:#f2f6fc; --card:#ffffff;
+    --blue:#2f7de1; --blue-soft:#eaf2fd; --blue-deep:#1c5bb0; --blue-pale:#dceafd;
+    --teal:#12a894; --teal-soft:#e2f7f4;
+    --amber:#e2963a; --amber-soft:#fdf1e2;
+    --purple:#7c5ce0; --purple-soft:#efeafd;
     --text-hi:#151a23; --text-mid:#6b7686; --text-lo:#9aa4b2; --border:#e7ebf1;
     --red:#e0503f; --red-soft:#fbeae7; --green:#1f9d63; --green-soft:#e7f7ef;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-hi);-webkit-font-smoothing:antialiased;min-height:100vh;}
-  .hero-band{height:150px;background:linear-gradient(120deg,#e7f1fd,#f2f6fc 60%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;}
-  .wrap{max-width:420px;margin:0 auto;padding:40px 16px 60px;position:relative;z-index:1;}
-  .brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;justify-content:center;}
-  .brand-mark{width:46px;height:46px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(28,91,176,.22);background:linear-gradient(135deg,var(--blue),var(--blue-deep));flex-shrink:0;}
+  .hero-band{height:190px;background:linear-gradient(120deg,#dcebfd,#e2f7f4 55%,#f2f6fc 100%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;}
+  .wrap{max-width:460px;margin:0 auto;padding:34px 16px 60px;position:relative;z-index:1;}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:22px;justify-content:center;}
+  .brand-mark{width:50px;height:50px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(28,91,176,.25);background:linear-gradient(135deg,var(--blue),var(--teal));flex-shrink:0;}
   .brand-mark img{width:100%;height:100%;object-fit:cover;}
-  .brand-mark .fallback{color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;}
-  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;margin:0;}
-  .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.05em;text-transform:uppercase;margin:0;}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:16px;transition:box-shadow .15s ease;}
-  .panel:hover{box-shadow:0 8px 22px rgba(21,26,35,.06);}
-  h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:0 0 14px;}
+  .brand-mark .fallback{color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;}
+  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin:0;}
+  .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.06em;text-transform:uppercase;margin:0;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:16px;transition:box-shadow .18s ease, transform .18s ease;}
+  .panel:hover{box-shadow:0 10px 26px rgba(21,26,35,.07);}
+  h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+  .icon-chip{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .icon-chip svg{width:15px;height:15px;stroke-width:2;fill:none;}
+  .icon-chip.blue{background:var(--blue-soft);} .icon-chip.blue svg{stroke:var(--blue-deep);}
+  .icon-chip.teal{background:var(--teal-soft);} .icon-chip.teal svg{stroke:var(--teal);}
+  .icon-chip.amber{background:var(--amber-soft);} .icon-chip.amber svg{stroke:var(--amber);}
+  .icon-chip.purple{background:var(--purple-soft);} .icon-chip.purple svg{stroke:var(--purple);}
+  .icon-chip.green{background:var(--green-soft);} .icon-chip.green svg{stroke:var(--green);}
   label{font-size:12px;color:var(--text-mid);display:block;margin:0 0 5px;font-weight:500;}
   .field{margin-bottom:13px;}
   input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;transition:border-color .15s ease, box-shadow .15s ease;}
   input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.14);}
-  .btn{border:none;font-weight:600;font-size:13px;padding:11px 18px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;transition:transform .15s ease, box-shadow .15s ease;}
+  .btn{border:none;font-weight:600;font-size:13px;padding:12px 18px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;transition:transform .15s ease, box-shadow .15s ease;text-decoration:none;}
   .btn:hover{transform:translateY(-1px);}
-  .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-deep));color:#fff;box-shadow:0 6px 16px rgba(47,125,225,.28);}
+  .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-deep));color:#fff;box-shadow:0 6px 18px rgba(47,125,225,.3);}
+  .btn-teal{background:linear-gradient(135deg,#17c2ac,var(--teal));color:#fff;box-shadow:0 6px 18px rgba(18,168,148,.3);}
   .btn-ghost{background:var(--blue-soft);color:var(--blue-deep);}
+  .btn-row{display:flex;gap:10px;}
   .error{color:var(--red);font-size:12px;margin-top:8px;display:none;}
-  .status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-  .badge{font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600;}
+  .status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .badge{font-size:12px;padding:5px 13px;border-radius:20px;font-weight:700;}
   .badge.paid{background:var(--green-soft);color:var(--green);}
   .badge.due{background:var(--red-soft);color:var(--red);}
-  .detail-grid{display:flex;gap:22px;flex-wrap:wrap;}
-  .detail-grid .k{font-size:12px;color:var(--text-mid);margin:0;}
-  .detail-grid .v{font-size:14px;margin:2px 0 0;font-weight:500;}
-  .hist-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--border);}
-  .hist-row:first-of-type{border-top:none;}
-  .hist-row .m{font-size:13px;margin:0;}
-  .hist-row .meth{font-size:11px;color:var(--text-lo);margin:0;}
-  .hist-row .amt{font-size:13px;font-weight:600;}
+  .chips-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .chip{flex:1;min-width:110px;background:var(--bg);border-radius:12px;padding:12px 14px;}
+  .chip .k{font-size:11px;color:var(--text-mid);margin:0 0 4px;}
+  .chip .v{font-size:15px;font-weight:600;margin:0;font-family:'Space Grotesk',sans-serif;}
+  .month-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);}
+  .month-row:first-of-type{border-top:none;}
+  .month-row .m{font-size:13px;margin:0;font-weight:500;}
+  .month-row .meth{font-size:11px;color:var(--text-lo);margin:0;}
+  .pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
+  .pill.paid{background:var(--green-soft);color:var(--green);}
+  .pill.due{background:var(--red-soft);color:var(--red);}
   .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
   #logoutBtn{background:none;border:none;color:var(--text-lo);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
   #configWarn{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;}
+  .speed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .speed-tile{background:var(--bg);border-radius:12px;padding:14px 10px;text-align:center;}
+  .speed-tile .sv{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin:0;}
+  .speed-tile .su{font-size:10px;color:var(--text-lo);text-transform:uppercase;letter-spacing:.04em;margin:2px 0 0;}
+  .speed-tile.active .sv{color:var(--teal);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .pulsing{animation:pulse 1s ease-in-out infinite;}
 </style>
 </head>
 <body>
@@ -64,34 +87,49 @@
   <div id="configWarn" style="display:none;">Supabase URL/key not set — edit the CONFIG block near the top of the &lt;script&gt; in this file, then reload.</div>
 
   <div id="loginView" class="panel">
-    <h3>Log in</h3>
+    <h3><span class="icon-chip blue"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0"/></svg></span>Log in</h3>
     <div class="field"><label>Customer ID</label><input id="loginCode" placeholder="e.g. RASV042" autocapitalize="characters"></div>
     <div class="field"><label>Password</label><input id="loginPass" type="password"></div>
     <button class="btn btn-primary" onclick="login()">Log in</button>
     <p class="error" id="loginError">Incorrect customer ID or password.</p>
-    <p class="hint">Your customer ID is your username. Your password was originally the same as your ID — you can change it below once logged in.</p>
+    <p class="hint">Your customer ID is your username. Your password starts the same as your ID — change it below once logged in.</p>
   </div>
 
   <div id="portalView" style="display:none;">
     <div class="panel">
       <div class="status-row">
-        <h3 style="margin:0;">Hello, <span id="custName"></span></h3>
+        <h3 style="margin:0;"><span class="icon-chip blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></span>Hello, <span id="custName"></span></h3>
         <span class="badge" id="statusBadge"></span>
       </div>
-      <div class="detail-grid">
-        <div><p class="k">Customer ID</p><p class="v" id="custCode"></p></div>
-        <div><p class="k">Package</p><p class="v" id="custPackage"></p></div>
-        <div><p class="k">Monthly bill</p><p class="v" id="custBill"></p></div>
+      <div class="chips-row">
+        <div class="chip"><p class="k">Customer ID</p><p class="v" id="custCode"></p></div>
+        <div class="chip"><p class="k">Package</p><p class="v" id="custPackage"></p></div>
+        <div class="chip"><p class="k">Monthly bill</p><p class="v" id="custBill"></p></div>
       </div>
     </div>
 
     <div class="panel">
-      <h3>Payment history</h3>
+      <h3><span class="icon-chip purple"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg></span>Payment history</h3>
       <div id="histList"></div>
     </div>
 
     <div class="panel">
-      <a class="btn btn-primary" id="supportBtn" href="#" target="_blank" style="text-decoration:none;margin-bottom:10px;">Contact support on WhatsApp</a>
+      <h3><span class="icon-chip teal"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg></span>Speed test</h3>
+      <div class="speed-grid">
+        <div class="speed-tile" id="tileDown"><p class="sv" id="valDown">—</p><p class="su">Mbps down</p></div>
+        <div class="speed-tile" id="tileUp"><p class="sv" id="valUp">—</p><p class="su">Mbps up</p></div>
+        <div class="speed-tile" id="tilePing"><p class="sv" id="valPing">—</p><p class="su">ms ping</p></div>
+      </div>
+      <button class="btn btn-teal" id="speedBtn" onclick="runSpeedTest()">Run speed test</button>
+      <p class="hint">Uses a multi-connection test against a global edge network for a realistic reading of your current connection.</p>
+    </div>
+
+    <div class="panel">
+      <h3><span class="icon-chip green"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></span>Need help?</h3>
+      <div class="btn-row" style="margin-bottom:10px;">
+        <a class="btn btn-teal" id="supportBtn" href="#" target="_blank">Technical support</a>
+        <a class="btn btn-ghost" id="billingBtn" href="#" target="_blank">Billing / account</a>
+      </div>
       <button class="btn btn-ghost" onclick="openChangePass()">Change password</button>
     </div>
 
@@ -111,7 +149,8 @@
 // ====== CONFIG — same Supabase project as the ERP ======
 const SUPABASE_URL = 'https://aitgxtutqgryyvqgxelh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGd4dHV0cWdyeXl2cWd4ZWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MjkyMTIsImV4cCI6MjEwMDUwNTIxMn0.qoYbGI7KMSmEvEu3C_GWGTX6Ccz8qZUhmDWhR02g9yw';
-const SUPPORT_PHONE = ''; // your business WhatsApp number, digits only, e.g. '8801XXXXXXXXX'
+const SUPPORT_PHONE = '8801686023434';   // customer support / technical
+const BILLING_PHONE = '8801842292646';   // administrative / billing
 // =========================================================
 
 let db = null;
@@ -161,18 +200,40 @@ async function showPortal(){
   badge.textContent = isPaid ? 'Paid' : `Due ${fmt(dues.dues)}`;
   badge.className = 'badge ' + (isPaid ? 'paid' : 'due');
 
-  const phone = (SUPPORT_PHONE || currentCustomer.phone || '').replace(/[^0-9]/g,'');
-  const msg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I need some help with my connection.`);
-  document.getElementById('supportBtn').href = `https://wa.me/${phone}?text=${msg}`;
+  const supportMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I need some help with my connection.`);
+  const billingMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I have a question about my bill/account.`);
+  document.getElementById('supportBtn').href = `https://wa.me/${SUPPORT_PHONE}?text=${supportMsg}`;
+  document.getElementById('billingBtn').href = `https://wa.me/${BILLING_PHONE}?text=${billingMsg}`;
 
-  const { data: history } = await db.from('payments').select('*').eq('customer_id', currentCustomer.id).order('billing_month', { ascending:false }).limit(12);
-  document.getElementById('histList').innerHTML = (history||[]).map(p=>{
-    const monthLabel = new Date(p.billing_month).toLocaleString('en', { month:'long', year:'numeric' });
-    return `<div class="hist-row">
-      <div><p class="m">${monthLabel}</p><p class="meth">${p.method}</p></div>
-      <p class="amt">${fmt(p.amount)}</p>
-    </div>`;
-  }).join('') || '<p class="hint">No payments recorded yet.</p>';
+  await renderMonthlyLedger();
+}
+
+async function renderMonthlyLedger(){
+  const { data: payments } = await db.from('payments').select('*').eq('customer_id', currentCustomer.id);
+  const paidByMonth = new Map();
+  (payments||[]).forEach(p => {
+    const key = new Date(p.billing_month).toISOString().slice(0,7);
+    paidByMonth.set(key, p);
+  });
+
+  const joined = currentCustomer.created_at ? new Date(currentCustomer.created_at) : null;
+  const now = new Date();
+  const months = [];
+  for (let i=0; i<12; i++){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    if (joined && d < new Date(joined.getFullYear(), joined.getMonth(), 1)) break;
+    months.push(d);
+  }
+
+  document.getElementById('histList').innerHTML = months.map(d=>{
+    const key = d.toISOString().slice(0,7);
+    const label = d.toLocaleString('en', { month:'long', year:'numeric' });
+    const rec = paidByMonth.get(key);
+    if (rec){
+      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${rec.method} · ${fmt(rec.amount)}</p></div><span class="pill paid">Paid</span></div>`;
+    }
+    return `<div class="month-row"><p class="m">${label}</p><span class="pill due">Due</span></div>`;
+  }).join('') || '<p class="hint">No billing history yet.</p>';
 }
 
 function openChangePass(){
@@ -196,6 +257,68 @@ async function tryResumeSession(){
   if (!savedCode) return;
   const { data } = await db.from('customers').select('*').eq('customer_code', savedCode).eq('status','active').maybeSingle();
   if (data){ currentCustomer = data; showPortal(); }
+}
+
+// ---- Speed test: multi-connection download/upload against a public global edge test endpoint, plus a ping/latency probe ----
+async function pingTest(){
+  const times = [];
+  for (let i=0;i<5;i++){
+    const t0 = performance.now();
+    await fetch(`https://speed.cloudflare.com/__down?bytes=0&cb=${Math.random()}`, { cache:'no-store' });
+    times.push(performance.now()-t0);
+  }
+  times.shift(); // drop the first (connection warmup) reading
+  return times.reduce((a,b)=>a+b,0)/times.length;
+}
+
+async function downloadTest(){
+  const streams = 4, bytesEach = 6_000_000;
+  const t0 = performance.now();
+  await Promise.all(Array.from({length:streams}, () =>
+    fetch(`https://speed.cloudflare.com/__down?bytes=${bytesEach}&cb=${Math.random()}`, { cache:'no-store' }).then(r=>r.arrayBuffer())
+  ));
+  const seconds = (performance.now()-t0)/1000;
+  const totalBits = streams * bytesEach * 8;
+  return totalBits / seconds / 1_000_000;
+}
+
+async function uploadTest(){
+  const streams = 3, bytesEach = 3_000_000;
+  const payload = new Blob([new Uint8Array(bytesEach)]);
+  const t0 = performance.now();
+  await Promise.all(Array.from({length:streams}, () =>
+    fetch('https://speed.cloudflare.com/__up', { method:'POST', body: payload })
+  ));
+  const seconds = (performance.now()-t0)/1000;
+  const totalBits = streams * bytesEach * 8;
+  return totalBits / seconds / 1_000_000;
+}
+
+async function runSpeedTest(){
+  const btn = document.getElementById('speedBtn');
+  btn.disabled = true; btn.textContent = 'Testing…';
+  ['tileDown','tileUp','tilePing'].forEach(id=>document.getElementById(id).classList.add('active','pulsing'));
+  document.getElementById('valPing').textContent = '—';
+  document.getElementById('valDown').textContent = '—';
+  document.getElementById('valUp').textContent = '—';
+
+  try{
+    const ping = await pingTest();
+    document.getElementById('valPing').textContent = ping.toFixed(0);
+    document.getElementById('tilePing').classList.remove('pulsing');
+
+    const down = await downloadTest();
+    document.getElementById('valDown').textContent = down.toFixed(1);
+    document.getElementById('tileDown').classList.remove('pulsing');
+
+    const up = await uploadTest();
+    document.getElementById('valUp').textContent = up.toFixed(1);
+    document.getElementById('tileUp').classList.remove('pulsing');
+  } catch(e){
+    alert('Speed test failed — check your connection and try again.');
+    ['tileDown','tileUp','tilePing'].forEach(id=>document.getElementById(id).classList.remove('pulsing'));
+  }
+  btn.disabled = false; btn.textContent = 'Run speed test again';
 }
 
 if (initSupabase()){
