@@ -112,16 +112,17 @@
 </style>
 </head>
 <body>
+<div class="hero-band"></div>
 <div class="wrap">
 
   <div id="configWarn">Supabase URL/key not set — edit the CONFIG block near the top of the &lt;script&gt; in this file with your project's values, then reload.</div>
 
   <div class="topbar">
     <div class="brand">
-      <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo"></div>
+      <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:'SV'}))"></div>
       <div><p class="brand-name">SVCN</p><p class="brand-sub">ERP</p></div>
     </div>
-    <div style="display:flex;gap:10px;">
+    <div class="topbar-actions">
       <button class="btn btn-ghost" onclick="openModal('expenseModal')">+ Expense</button>
       <button class="btn btn-primary" onclick="openModal('paymentModal')">+ Add payment</button>
     </div>
@@ -144,13 +145,13 @@
       <div class="metric"><p class="label">Expenses — this month</p><p class="value" id="mExpenses">৳0</p></div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:18px;">
+    <div class="grid2">
       <div class="panel">
         <h3>Recent payments</h3>
-        <table>
+        <div class="table-wrap"><table>
           <tr><th>Customer</th><th>Package</th><th style="text-align:right">Amount</th></tr>
           <tbody id="recentPayments"></tbody>
-        </table>
+        </table></div>
       </div>
       <div class="panel">
         <h3>Customers with dues</h3>
@@ -170,10 +171,10 @@
         </div>
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importCustomersExcel(event)">
       </div>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th></th></tr>
         <tbody id="customerRows"></tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 
@@ -184,10 +185,10 @@
         <span class="hint" id="cycleLabel" style="margin:0;"></span>
       </div>
       <p class="hint" style="margin:0 0 14px;">Every active customer for the current month — send a reminder to anyone still unpaid with one tap.</p>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Customer</th><th>Bill</th><th>Status</th><th></th></tr>
         <tbody id="reminderRows"></tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 
@@ -198,17 +199,17 @@
     </div>
     <div class="panel">
       <h3>All payments</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Date</th><th>Customer</th><th>Month</th><th>Method</th><th style="text-align:right">Amount</th></tr>
         <tbody id="allPayments"></tbody>
-      </table>
+      </table></div>
     </div>
     <div class="panel">
       <h3>All expenses</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th></tr>
         <tbody id="allExpenses"></tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 
