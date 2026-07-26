@@ -173,7 +173,10 @@
   .steps-list li .ref-code{background:var(--amber-soft);color:var(--amber);padding:1px 7px;border-radius:6px;font-weight:700;font-family:monospace;}
   .verify-tick-wrap{display:none;text-align:center;padding:18px 6px 4px;}
   .verify-tick-wrap.show{display:block;animation:cardIn .4s ease;}
-  .tick-circle{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--green-soft);display:flex;align-items:center;justify-content:center;position:relative;}
+  .tick-circle{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--green-soft);display:flex;align-items:center;justify-content:center;position:relative;transition:background-color .25s ease;}
+  .tick-circle svg{stroke:var(--green);}
+  .tick-circle.rejected{background:var(--red-soft);}
+  .tick-circle.rejected svg{stroke:var(--red);}
   .tick-circle svg{width:30px;height:30px;stroke:var(--green);fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:tickDraw .5s ease .1s forwards;}
   @keyframes tickDraw{to{stroke-dashoffset:0;}}
   .tick-circle::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--green);opacity:0;animation:tickRing 1.4s ease-out .1s infinite;}
@@ -253,10 +256,11 @@
         <p class="hint" style="margin-top:8px;" id="bkashSubmitHint"></p>
       </div>
       <div class="verify-tick-wrap" id="verifyTickWrap">
-        <div class="tick-circle"><svg viewBox="0 0 24 24"><polyline points="4,13 9,18 20,6"/></svg></div>
-        <h4>Payment under verification</h4>
-        <p>Your connection will automatically be renewed once verified.</p>
-        <span class="verify-eta">⏱ Usually takes 1–5 minutes</span>
+        <div class="tick-circle" id="verifyIcon"><svg viewBox="0 0 24 24"><polyline points="4,13 9,18 20,6"/></svg></div>
+        <h4 id="verifyTitle">Payment under verification</h4>
+        <p id="verifyMsg">Your connection will automatically be renewed once verified.</p>
+        <span class="verify-eta" id="verifyEta">⏱ Usually takes 1–5 minutes</span>
+        <button class="btn btn-ghost" id="verifyRetryBtn" style="display:none;margin-top:14px;" onclick="resetVerifyFlow()">Try again</button>
       </div>
     </div>
 
@@ -398,6 +402,7 @@ async function showPortal(){
 
   await renderMonthlyLedger();
   await checkPendingVerification();
+  subscribeToVerification();
 }
 
 // Use the raw 'YYYY-MM' slice of the stored date string directly — avoids a timezone
@@ -501,13 +506,49 @@ async function submitBkashVerification(){
   localStorage.setItem('svcn_pending_txn_' + currentCustomer.id, txn);
   document.getElementById('txnId').value = '';
   hint.textContent = '';
-  showVerifyTick();
+  showVerifyTick('pending');
+  subscribeToVerification();
 }
 
-function showVerifyTick(){
+function showVerifyTick(status){
   document.getElementById('bkashFlow').style.display = 'none';
   const wrap = document.getElementById('verifyTickWrap');
   wrap.classList.add('show');
+  const icon = document.getElementById('verifyIcon');
+  const title = document.getElementById('verifyTitle');
+  const msg = document.getElementById('verifyMsg');
+  const eta = document.getElementById('verifyEta');
+  const retryBtn = document.getElementById('verifyRetryBtn');
+
+  if (status === 'approved'){
+    icon.classList.remove('rejected');
+    icon.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="4,13 9,18 20,6"/></svg>';
+    title.textContent = 'Payment verified!';
+    msg.textContent = 'Your account has been marked as paid for this month.';
+    eta.style.display = 'none';
+    retryBtn.style.display = 'none';
+  } else if (status === 'rejected'){
+    icon.classList.add('rejected');
+    icon.innerHTML = '<svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+    title.textContent = 'Could not verify this transaction';
+    msg.textContent = 'We couldn\'t match this transaction ID. Please double check it or contact support.';
+    eta.style.display = 'none';
+    retryBtn.style.display = '';
+  } else {
+    icon.classList.remove('rejected');
+    icon.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="4,13 9,18 20,6"/></svg>';
+    title.textContent = 'Payment under verification';
+    msg.textContent = 'Your connection will automatically be renewed once verified.';
+    eta.style.display = '';
+    retryBtn.style.display = 'none';
+  }
+}
+
+function resetVerifyFlow(){
+  localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id);
+  document.getElementById('verifyTickWrap').classList.remove('show');
+  document.getElementById('bkashFlow').style.display = '';
+  document.getElementById('txnId').value = '';
 }
 
 async function checkPendingVerification(){
@@ -517,13 +558,41 @@ async function checkPendingVerification(){
     const { data } = await db.from('payment_verifications').select('*').eq('customer_id', currentCustomer.id).eq('transaction_id', saved).maybeSingle();
     if (!data) return;
     if (data.status === 'pending'){
-      showVerifyTick();
+      showVerifyTick('pending');
     } else if (data.status === 'approved'){
+      showVerifyTick('approved');
       localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id);
+      await showPortal(); // refresh badge, dues and ledger now that a payment landed
     } else if (data.status === 'rejected'){
+      showVerifyTick('rejected');
       localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id);
     }
   } catch(e){ /* table may not exist yet — fail quietly */ }
+}
+
+// Real-time: subscribe to changes on this customer's verification rows so status updates
+// the moment the admin approves/rejects in the ERP — no reload needed.
+// NOTE: this requires Realtime to be switched on for the `payment_verifications` table
+// in Supabase (Database → Replication → toggle it on for that table). A polling fallback
+// runs regardless, so status still updates within a few seconds even without that step.
+let verifyPollTimer = null;
+let verifyChannel = null;
+function subscribeToVerification(){
+  if (!currentCustomer) return;
+  if (verifyChannel) db.removeChannel(verifyChannel);
+  verifyChannel = db.channel('verify-' + currentCustomer.id)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'payment_verifications',
+      filter: `customer_id=eq.${currentCustomer.id}`
+    }, payload => {
+      const row = payload.new;
+      if (row.status === 'approved'){ showVerifyTick('approved'); localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id); showPortal(); }
+      else if (row.status === 'rejected'){ showVerifyTick('rejected'); localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id); }
+    })
+    .subscribe();
+
+  if (verifyPollTimer) clearInterval(verifyPollTimer);
+  verifyPollTimer = setInterval(checkPendingVerification, 6000);
 }
 
 // ---- Speed test: multi-connection download/upload against a public global edge test endpoint, plus a ping/latency probe ----
