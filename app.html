@@ -14,6 +14,7 @@
     --bg:#f2f6fc; --card:#ffffff; --blue:#2f7de1; --blue-soft:#eaf2fd; --blue-deep:#1c5bb0; --blue-pale:#dceafd;
     --text-hi:#151a23; --text-mid:#6b7686; --text-lo:#9aa4b2; --border:#e7ebf1;
     --red:#e0503f; --red-soft:#fbeae7; --green:#1f9d63; --green-soft:#e7f7ef; --amber:#e2963a; --amber-soft:#fdf1e2;
+    --purple:#7c5ce0; --purple-soft:#efeafd;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-hi);-webkit-font-smoothing:antialiased;}
@@ -34,11 +35,17 @@
   .btn-primary:hover{box-shadow:0 10px 22px rgba(47,125,225,.36);}
   .btn-ghost{background:var(--blue-soft);color:var(--blue-deep);}
   .btn-ghost:hover{background:var(--blue-pale);}
+  .btn-amber{background:var(--amber-soft);color:var(--amber);}
+  .btn-amber:hover{background:#fbe4c2;}
+  .btn-sm{padding:7px 11px;font-size:12px;border-radius:8px;}
+  .btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
   .tabs{display:flex;gap:6px;margin-bottom:22px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .tabs::-webkit-scrollbar{display:none;}
-  .tab{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-mid);transition:background-color .15s ease, color .15s ease;white-space:nowrap;flex-shrink:0;}
+  .tab{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-mid);transition:background-color .15s ease, color .15s ease;white-space:nowrap;flex-shrink:0;position:relative;}
   .tab:hover{background:rgba(47,125,225,.07);color:var(--blue-deep);}
   .tab.active{background:var(--card);color:var(--blue-deep);border:1px solid var(--border);box-shadow:0 2px 8px rgba(21,26,35,.05);}
+  .tab .tab-dot{position:absolute;top:4px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;}
+  .tab .tab-dot.show{display:block;}
   .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px;}
   .metric{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;transition:transform .15s ease, box-shadow .15s ease;position:relative;overflow:hidden;}
   .metric:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(21,26,35,.08);}
@@ -68,23 +75,38 @@
   .modal-bg.open{display:flex;animation:fadeIn .15s ease;}
   @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
   @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}
-  .modal{background:#fff;border-radius:18px;padding:22px;width:380px;max-width:100%;max-height:88vh;overflow:auto;animation:popIn .18s ease;}
-  .modal h3{font-family:'Space Grotesk',sans-serif;margin:0 0 14px;}
+  .modal{background:#fff;border-radius:18px;padding:22px;width:380px;max-width:100%;max-height:88vh;overflow:auto;animation:popIn .18s ease;position:relative;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .modal-head h3{margin:0;}
+  .modal-head-actions{display:flex;gap:4px;}
+  .modal-icon-btn{width:26px;height:26px;border-radius:7px;border:none;background:var(--blue-soft);color:var(--blue-deep);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .15s ease;flex-shrink:0;}
+  .modal-icon-btn:hover{background:var(--blue-pale);}
+  .modal-icon-btn.close-x{background:var(--red-soft);color:var(--red);}
+  .modal-icon-btn.close-x:hover{background:#f6d9d3;}
   .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
-  #receiptCanvas{display:none;}
+  #receiptCanvas,#receiptCanvas2{display:none;}
   .receipt-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
   .wa-btn{width:30px;height:30px;border-radius:8px;background:var(--blue-soft);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s ease, background-color .15s ease;flex-shrink:0;}
   .wa-btn:hover{transform:scale(1.08);background:var(--blue-pale);}
   .wa-btn svg{width:14px;height:14px;stroke:var(--blue-deep);fill:none;stroke-width:2;}
+  .rc-btn{width:30px;height:30px;border-radius:8px;background:var(--purple-soft);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s ease, background-color .15s ease;flex-shrink:0;}
+  .rc-btn:hover{transform:scale(1.08);}
+  .rc-btn svg{width:14px;height:14px;stroke:var(--purple);fill:none;stroke-width:2;}
   .row-remove{width:26px;height:26px;border-radius:7px;border:none;background:transparent;color:var(--text-lo);font-size:17px;line-height:1;cursor:pointer;transition:background-color .15s ease, color .15s ease;}
   .row-remove:hover{background:var(--red-soft);color:var(--red);}
+  .row-edit{width:26px;height:26px;border-radius:7px;border:none;background:transparent;color:var(--text-lo);cursor:pointer;transition:background-color .15s ease, color .15s ease;display:inline-flex;align-items:center;justify-content:center;}
+  .row-edit svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;}
+  .row-edit:hover{background:var(--blue-soft);color:var(--blue-deep);}
   .pill{font-size:11px;padding:4px 11px;border-radius:20px;font-weight:600;white-space:nowrap;}
   .pill.paid{background:var(--green-soft);color:var(--green);}
   .pill.due{background:var(--red-soft);color:var(--red);}
+  .pill.adjusted{background:var(--amber-soft);color:var(--amber);}
+  .pill.pending{background:var(--amber-soft);color:var(--amber);}
   .tab[data-tab="customers"].active{color:var(--blue-deep);}
   .tab[data-tab="reminders"].active{color:var(--red);}
   .tab[data-tab="transactions"].active{color:var(--amber);}
   .tab[data-tab="money"].active{color:var(--green);}
+  .tab[data-tab="verifications"].active{color:var(--purple);}
   .due-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);}
   .due-row:first-of-type{border-top:none;}
   #configWarn{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none;}
@@ -99,6 +121,14 @@
   .ai-msg.bot{background:var(--bg);}
   #aiInputRow{display:flex;gap:6px;padding:10px;border-top:1px solid var(--border);}
   #aiInputRow input{flex:1;}
+
+  /* Minimized modal chips */
+  #minimizedBar{position:fixed;bottom:20px;left:20px;display:flex;flex-direction:column;gap:8px;z-index:25;}
+  .min-chip{background:#fff;border:1px solid var(--border);box-shadow:0 8px 20px rgba(21,26,35,.14);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;animation:popIn .18s ease;font-size:13px;font-weight:600;color:var(--blue-deep);}
+  .min-chip:hover{box-shadow:0 10px 24px rgba(21,26,35,.2);}
+  .min-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0;animation:pulseDot 1.4s ease-in-out infinite;}
+  @keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .min-chip .min-x{background:none;border:none;color:var(--text-lo);font-size:15px;cursor:pointer;padding:0 0 0 4px;}
 
   @media (max-width: 900px){
     .grid2{grid-template-columns:1fr;}
@@ -115,6 +145,7 @@
     .panel{padding:16px;}
     #aiPanel{right:12px;left:12px;bottom:76px;max-width:none;}
     #aiToggle{right:14px;bottom:14px;}
+    #minimizedBar{left:12px;bottom:12px;}
   }
 </style>
 </head>
@@ -140,6 +171,7 @@
     <div class="tab" data-tab="customers" onclick="switchTab('customers')">Customers</div>
     <div class="tab" data-tab="reminders" onclick="switchTab('reminders')">Reminders</div>
     <div class="tab" data-tab="transactions" onclick="switchTab('transactions')">Transactions</div>
+    <div class="tab" data-tab="verifications" onclick="switchTab('verifications')">Verifications<span class="tab-dot" id="verifDot"></span></div>
     <div class="tab" data-tab="money" onclick="switchTab('money')">Money</div>
     <div class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</div>
   </div>
@@ -156,7 +188,7 @@
       <div class="panel">
         <h3>Recent payments</h3>
         <div class="table-wrap"><table>
-          <tr><th>Customer</th><th>Package</th><th style="text-align:right">Amount</th></tr>
+          <tr><th>Customer</th><th>Package</th><th style="text-align:right">Amount</th><th></th></tr>
           <tbody id="recentPayments"></tbody>
         </table></div>
       </div>
@@ -169,11 +201,12 @@
 
   <div id="tab-customers" style="display:none;">
     <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
         <h3 style="margin:0;">All customers</h3>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">Import Excel</button>
           <button class="btn btn-ghost" onclick="exportCustomersExcel()">Export Excel</button>
+          <button class="btn btn-amber" onclick="openModal('bulkPaidModal')">Mark months paid</button>
           <button class="btn btn-primary" onclick="openModal('customerModal')">+ Add customer</button>
         </div>
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importCustomersExcel(event)">
@@ -187,11 +220,13 @@
 
   <div id="tab-reminders" style="display:none;">
     <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <h3 style="margin:0;">This month's billing cycle</h3>
-        <span class="hint" id="cycleLabel" style="margin:0;"></span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Billing cycle</h3>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="month" id="reminderMonthPicker" style="width:auto;padding:8px 10px;" onchange="loadReminders()">
+        </div>
       </div>
-      <p class="hint" style="margin:0 0 14px;">Every active customer for the current month — send a reminder to anyone still unpaid with one tap.</p>
+      <p class="hint" style="margin:0 0 14px;">Pick any month to track — every active customer for that billing cycle, with a reminder you can send to anyone still unpaid.</p>
       <div class="table-wrap"><table>
         <tr><th>Customer</th><th>Bill</th><th>Status</th><th></th></tr>
         <tbody id="reminderRows"></tbody>
@@ -207,7 +242,7 @@
     <div class="panel">
       <h3>All payments</h3>
       <div class="table-wrap"><table>
-        <tr><th>Date</th><th>Customer</th><th>Month</th><th>Method</th><th style="text-align:right">Amount</th></tr>
+        <tr><th>Date</th><th>Customer</th><th>Month</th><th>Method</th><th style="text-align:right">Amount</th><th></th></tr>
         <tbody id="allPayments"></tbody>
       </table></div>
     </div>
@@ -217,6 +252,18 @@
         <tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th></tr>
         <tbody id="allExpenses"></tbody>
       </table></div>
+    </div>
+  </div>
+
+  <div id="tab-verifications" style="display:none;">
+    <div class="panel">
+      <h3>Pending bKash verifications</h3>
+      <p class="hint" style="margin:0 0 14px;">Customers submit a transaction ID from the portal after sending money manually. Check it against your bKash statement, then approve to record the payment and clear their due.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Submitted</th><th>Customer</th><th>Month</th><th style="text-align:right">Amount</th><th>Transaction ID</th><th></th></tr>
+        <tbody id="verifRows"></tbody>
+      </table></div>
+      <p class="hint" id="verifSetupHint" style="display:none;">This needs a <code>payment_verifications</code> table in Supabase — see the setup note shared alongside this file.</p>
     </div>
   </div>
 
@@ -267,14 +314,19 @@
 
 <!-- Add customer modal -->
 <div class="modal-bg" id="customerModal-bg"><div class="modal">
-  <h3>Add customer</h3>
+  <div class="modal-head"><h3>Add customer</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn" title="Minimize" onclick="minimizeModal('customerModal')">&#8211;</button>
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('customerModal')">&times;</button>
+    </div>
+  </div>
   <div class="field"><label>Customer ID (e.g. RASV043)</label><input id="c_code"></div>
   <div class="field"><label>Name</label><input id="c_name"></div>
   <div class="row">
     <div class="field"><label>Package</label><select id="c_package"><option value="wifi">Wifi</option><option value="wifi_dish">Wifi + Dish</option></select></div>
     <div class="field"><label>Monthly bill (Tk)</label><input id="c_bill" type="number"></div>
   </div>
-  <div class="field"><label>Phone</label><input id="c_phone"></div>
+  <div class="field"><label>Phone</label><input id="c_phone" placeholder="e.g. 01712345678"></div>
   <div class="field"><label>IP address</label><input id="c_ip"></div>
   <div class="field"><label>Address</label><input id="c_address"></div>
   <div style="display:flex;gap:8px;margin-top:8px;">
@@ -283,9 +335,38 @@
   </div>
 </div></div>
 
+<!-- Edit customer modal -->
+<div class="modal-bg" id="editCustomerModal-bg"><div class="modal">
+  <div class="modal-head"><h3>Edit customer</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn" title="Minimize" onclick="minimizeModal('editCustomerModal')">&#8211;</button>
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('editCustomerModal')">&times;</button>
+    </div>
+  </div>
+  <input type="hidden" id="ec_id">
+  <div class="field"><label>Customer ID</label><input id="ec_code"></div>
+  <div class="field"><label>Name</label><input id="ec_name"></div>
+  <div class="row">
+    <div class="field"><label>Package</label><select id="ec_package"><option value="wifi">Wifi</option><option value="wifi_dish">Wifi + Dish</option></select></div>
+    <div class="field"><label>Monthly bill (Tk)</label><input id="ec_bill" type="number"></div>
+  </div>
+  <div class="field"><label>Phone</label><input id="ec_phone" placeholder="e.g. 01712345678"></div>
+  <div class="field"><label>IP address</label><input id="ec_ip"></div>
+  <div class="field"><label>Address</label><input id="ec_address"></div>
+  <div style="display:flex;gap:8px;margin-top:8px;">
+    <button class="btn btn-primary" onclick="submitEditCustomer()">Save changes</button>
+    <button class="btn btn-ghost" onclick="closeModal('editCustomerModal')">Cancel</button>
+  </div>
+</div></div>
+
 <!-- Add payment modal -->
 <div class="modal-bg" id="paymentModal-bg"><div class="modal">
-  <h3>Add payment</h3>
+  <div class="modal-head"><h3>Add payment</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn" title="Minimize" onclick="minimizeModal('paymentModal')">&#8211;</button>
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('paymentModal')">&times;</button>
+    </div>
+  </div>
   <div class="field"><label>Customer</label><select id="p_customer" onchange="onPaymentCustomerChange()"></select></div>
   <div class="row">
     <div class="field"><label>Amount (Tk)</label><input id="p_amount" type="number"></div>
@@ -303,7 +384,12 @@
 
 <!-- Add expense modal -->
 <div class="modal-bg" id="expenseModal-bg"><div class="modal">
-  <h3>Add expense</h3>
+  <div class="modal-head"><h3>Add expense</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn" title="Minimize" onclick="minimizeModal('expenseModal')">&#8211;</button>
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('expenseModal')">&times;</button>
+    </div>
+  </div>
   <div class="field"><label>Description</label><input id="e_desc"></div>
   <div class="row">
     <div class="field"><label>Category</label><input id="e_cat" placeholder="e.g. Equipment"></div>
@@ -311,6 +397,36 @@
   </div>
   <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitExpense()">Save expense</button>
 </div></div>
+
+<!-- Bulk mark-months-paid modal -->
+<div class="modal-bg" id="bulkPaidModal-bg"><div class="modal">
+  <div class="modal-head"><h3>Mark previous months as paid</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn" title="Minimize" onclick="minimizeModal('bulkPaidModal')">&#8211;</button>
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('bulkPaidModal')">&times;</button>
+    </div>
+  </div>
+  <div class="field"><label>Mark all months up to and including</label><input id="bp_month" type="month"></div>
+  <p class="hint" style="margin-top:0;">For every active customer, any month with no existing payment record — from when they joined up to the month you pick — gets marked as <strong>paid</strong>. These are flagged as adjustment entries: they clear the customer's due and show as "Paid" everywhere, but are kept out of your real revenue totals since no money actually changed hands.</p>
+  <div id="bp_preview" class="hint"></div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="btn btn-amber" onclick="applyBulkMarkPaid()">Apply</button>
+    <button class="btn btn-ghost" onclick="closeModal('bulkPaidModal')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Receipt viewer modal (for any past payment) -->
+<div class="modal-bg" id="receiptModal-bg"><div class="modal">
+  <div class="modal-head"><h3>Receipt</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('receiptModal')">&times;</button>
+    </div>
+  </div>
+  <canvas id="receiptCanvas2" width="640" height="800"></canvas>
+  <div id="receiptModalPreview"></div>
+</div></div>
+
+<div id="minimizedBar"></div>
 
 <button id="aiToggle" onclick="toggleAi()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
 <div id="aiPanel">
@@ -330,8 +446,13 @@ const GROQ_API_KEY = 'YOUR-GROQ-API-KEY'; // free at console.groq.com — leave 
 
 let db = null;
 let customersCache = [];
+let minimizedModals = {}; // id -> label
 
 function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
+
+// Build a YYYY-MM key straight from a date-only string (no timezone round-trip, avoids off-by-one-month bugs)
+function monthKeyFromDateStr(s){ return String(s||'').slice(0,7); }
+function monthKeyFromLocalDate(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
 
 function initSupabase(){
   const looksConfigured = SUPABASE_URL.startsWith('https://') && SUPABASE_URL.length > 20 && SUPABASE_ANON_KEY.length > 50;
@@ -343,7 +464,7 @@ function initSupabase(){
   return true;
 }
 
-const TABS = ['dashboard','customers','reminders','transactions','money','settings'];
+const TABS = ['dashboard','customers','reminders','transactions','verifications','money','settings'];
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===name) ? '' : 'none'; });
@@ -351,10 +472,32 @@ function switchTab(name){
   if (name==='money') loadMoneyAllocation();
   if (name==='settings') loadTemplates();
   if (name==='reminders') loadReminders();
+  if (name==='verifications') loadVerifications();
 }
 
-function openModal(id){ document.getElementById(id+'-bg').classList.add('open'); }
-function closeModal(id){ document.getElementById(id+'-bg').classList.remove('open'); }
+function openModal(id){ document.getElementById(id+'-bg').classList.add('open'); delete minimizedModals[id]; renderMinimizedBar(); }
+function closeModal(id){ document.getElementById(id+'-bg').classList.remove('open'); delete minimizedModals[id]; renderMinimizedBar(); }
+
+const MODAL_LABELS = { customerModal:'Add customer', editCustomerModal:'Edit customer', paymentModal:'Add payment', expenseModal:'Add expense', bulkPaidModal:'Mark months paid' };
+function minimizeModal(id){
+  document.getElementById(id+'-bg').classList.remove('open');
+  minimizedModals[id] = MODAL_LABELS[id] || id;
+  renderMinimizedBar();
+}
+function restoreModal(id){
+  document.getElementById(id+'-bg').classList.add('open');
+  delete minimizedModals[id];
+  renderMinimizedBar();
+}
+function renderMinimizedBar(){
+  const bar = document.getElementById('minimizedBar');
+  bar.innerHTML = Object.keys(minimizedModals).map(id => `
+    <div class="min-chip">
+      <span class="dot"></span>
+      <span onclick="restoreModal('${id}')">${minimizedModals[id]} — resume</span>
+      <button class="min-x" title="Discard" onclick="event.stopPropagation();closeModal('${id}')">&times;</button>
+    </div>`).join('');
+}
 
 async function loadCustomers(){
   const { data, error } = await db.from('customers').select('*').eq('status','active').order('name');
@@ -371,12 +514,44 @@ async function loadCustomers(){
     <td class="muted">${c.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
     <td class="muted">${c.phone||''}</td><td class="amt">${fmt(c.monthly_bill)}</td>
     <td>${statusCell}</td>
-    <td style="text-align:right;"><button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button></td></tr>`;
+    <td style="text-align:right;white-space:nowrap;">
+      <button class="row-edit" title="Edit customer" onclick='openEditCustomer(${JSON.stringify(c)})'><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button>
+    </td></tr>`;
   }).join('');
   const sel = document.getElementById('p_customer');
   sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
   document.getElementById('mCustomers').textContent = data.length;
   onPaymentCustomerChange();
+}
+
+function openEditCustomer(c){
+  document.getElementById('ec_id').value = c.id;
+  document.getElementById('ec_code').value = c.customer_code || '';
+  document.getElementById('ec_name').value = c.name || '';
+  document.getElementById('ec_package').value = c.package_type || 'wifi';
+  document.getElementById('ec_bill').value = c.monthly_bill || 0;
+  document.getElementById('ec_phone').value = c.phone || '';
+  document.getElementById('ec_ip').value = c.ip_address || '';
+  document.getElementById('ec_address').value = c.address || '';
+  openModal('editCustomerModal');
+}
+
+async function submitEditCustomer(){
+  const id = document.getElementById('ec_id').value;
+  const payload = {
+    customer_code: document.getElementById('ec_code').value.trim(),
+    name: document.getElementById('ec_name').value.trim(),
+    package_type: document.getElementById('ec_package').value,
+    monthly_bill: Number(document.getElementById('ec_bill').value||0),
+    phone: document.getElementById('ec_phone').value.trim(),
+    ip_address: document.getElementById('ec_ip').value.trim(),
+    address: document.getElementById('ec_address').value.trim()
+  };
+  const { error } = await db.from('customers').update(payload).eq('id', id);
+  if (error) { alert(error.message); return; }
+  closeModal('editCustomerModal');
+  loadCustomers(); loadDashboard();
 }
 
 async function removeCustomer(id, name){
@@ -386,18 +561,39 @@ async function removeCustomer(id, name){
   loadCustomers(); loadDashboard();
 }
 
+function currentMonthStr(){ const n = new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
+
 async function loadReminders(){
-  document.getElementById('cycleLabel').textContent = new Date().toLocaleString('en', { month:'long', year:'numeric' });
-  const { data } = await db.from('customer_dues').select('*').order('name');
-  document.getElementById('reminderRows').innerHTML = (data||[]).map(d=>{
-    const paid = d.dues <= 0;
+  const picker = document.getElementById('reminderMonthPicker');
+  if (!picker.value) picker.value = currentMonthStr();
+  const monthVal = picker.value; // 'YYYY-MM'
+  const monthLabel = new Date(monthVal+'-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
+
+  const { data: customers } = await db.from('customers').select('*').eq('status','active').order('name');
+  const { data: payments } = await db.from('payments').select('customer_id,billing_month,method').gte('billing_month', monthVal+'-01').lt('billing_month', nextMonthStr(monthVal)+'-01');
+  const paidSet = new Set((payments||[]).map(p=>p.customer_id));
+  const backfillSet = new Set((payments||[]).filter(p=>p.method==='backfill').map(p=>p.customer_id));
+
+  document.getElementById('reminderRows').innerHTML = (customers||[]).map(c=>{
+    const paid = paidSet.has(c.id);
+    const adjusted = backfillSet.has(c.id);
+    let statusCell;
+    if (paid && adjusted) statusCell = '<span class="pill adjusted">Paid (adjusted)</span>';
+    else if (paid) statusCell = '<span style="color:var(--green);font-weight:600;">Paid</span>';
+    else statusCell = `<span style="color:var(--red);font-weight:600;">Due ${fmt(c.monthly_bill)}</span>`;
     return `<tr>
-      <td>${d.name}</td>
-      <td class="muted">${fmt(d.monthly_bill)}</td>
-      <td>${paid ? '<span style="color:var(--green);font-weight:600;">Paid</span>' : `<span style="color:var(--red);font-weight:600;">Due ${fmt(d.dues)}</span>`}</td>
-      <td style="text-align:right;">${paid ? '' : `<a class="wa-btn" href="${waLink(d.phone, buildReminderMessage(d.name, d.dues))}" target="_blank" title="Send reminder"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`}</td>
+      <td>${c.name}</td>
+      <td class="muted">${fmt(c.monthly_bill)}</td>
+      <td>${statusCell}</td>
+      <td style="text-align:right;">${paid ? '' : `<a class="wa-btn" href="${waLink(c.phone, buildReminderMessageFor(c.name, c.monthly_bill, monthLabel))}" target="_blank" title="Send reminder"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`}</td>
     </tr>`;
   }).join('') || '<tr><td class="hint" colspan="4">No active customers yet.</td></tr>';
+}
+
+function nextMonthStr(monthVal){
+  const [y,m] = monthVal.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m, 1)); // m is already next month index (0-based m-1 +1)
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');
 }
 
 function onPaymentCustomerChange(){
@@ -415,13 +611,15 @@ async function loadDashboard(){
   const monthStart = new Date(); monthStart.setDate(1);
   const monthStartStr = monthStart.toISOString().slice(0,10);
 
-  const { data: payments } = await db.from('payments').select('*, customers(name, package_type)').gte('billing_month', monthStartStr).order('created_at', { ascending:false });
-  const collected = (payments||[]).reduce((s,p)=>s+Number(p.amount),0);
+  const { data: payments } = await db.from('payments').select('*, customers(name, package_type, customer_code, phone)').gte('billing_month', monthStartStr).order('created_at', { ascending:false });
+  const realPayments = (payments||[]).filter(p=>p.method!=='backfill');
+  const collected = realPayments.reduce((s,p)=>s+Number(p.amount),0);
   document.getElementById('mCollected').textContent = fmt(collected);
   document.getElementById('recentPayments').innerHTML = (payments||[]).slice(0,6).map(p=>`<tr>
     <td>${p.customers?.name||''}</td>
     <td class="muted">${p.customers?.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
-    <td class="amt">${fmt(p.amount)}</td></tr>`).join('');
+    <td class="amt">${p.method==='backfill' ? '<span class="pill adjusted">Adjusted</span>' : fmt(p.amount)}</td>
+    <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
 
   const { data: expenses } = await db.from('expenses').select('*').gte('spent_on', monthStartStr);
   const totalExpenses = (expenses||[]).reduce((s,e)=>s+Number(e.amount),0);
@@ -438,6 +636,8 @@ async function loadDashboard(){
         <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
       </a>
     </span></div>`).join('') || '<p class="hint">No outstanding dues.</p>';
+
+  loadVerificationsBadge();
 }
 
 let reminderTemplateText = 'Hi {name}, a friendly reminder that your SVCN bill for {month} is due. Please clear it today — if you need a bit more time, just let us know beforehand. Thank you!';
@@ -448,6 +648,9 @@ async function loadReminderTemplate(){
 function buildReminderMessage(name, dues){
   const monthLabel = new Date().toLocaleString('en', { month:'long', year:'numeric' });
   return reminderTemplateText.replace('{name}', name).replace('{month}', monthLabel).replace('{amount}', dues).replace('{paid_through}', '');
+}
+function buildReminderMessageFor(name, amount, monthLabel){
+  return reminderTemplateText.replace('{name}', name).replace('{month}', monthLabel).replace('{amount}', amount).replace('{paid_through}', '');
 }
 
 async function submitCustomer(){
@@ -493,7 +696,7 @@ async function submitPayment(){
     .replace('{name}', opt.dataset.name).replace('{amount}', amount).replace('{month}', monthLabel)
     .replace('{paid_through}', paidThrough);
 
-  drawReceipt({ name: opt.dataset.name, code: opt.dataset.code, month: monthLabel, amount, method, paidThrough, receiptNo });
+  drawReceipt('receiptCanvas', { name: opt.dataset.name, code: opt.dataset.code, month: monthLabel, amount, method, paidThrough, receiptNo });
 
   document.getElementById('receiptPreview').innerHTML = `
     <div class="receipt-actions">
@@ -513,8 +716,31 @@ async function submitPayment(){
   loadDashboard(); loadCustomers();
 }
 
-function drawReceipt({name, code, month, amount, method, paidThrough, receiptNo}){
-  const canvas = document.getElementById('receiptCanvas');
+// Redraw & show the receipt for any past payment row (dashboard / transactions tables)
+function viewReceipt(p){
+  const name = p.customers?.name || '';
+  const code = p.customers?.customer_code || '';
+  const phone = p.customers?.phone || '';
+  const monthLabel = new Date(p.billing_month).toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
+  drawReceipt('receiptCanvas2', { name, code, month: monthLabel, amount: p.amount, method: p.method, paidThrough: p.paid_through, receiptNo: p.receipt_no });
+  const canvas = document.getElementById('receiptCanvas2');
+  document.getElementById('receiptModalPreview').innerHTML = `
+    <div class="receipt-actions">
+      ${phone ? `<a class="btn btn-primary" href="${waLink(phone, 'Hi '+name+', here is a copy of your receipt for '+monthLabel+'.')}" target="_blank">Open WhatsApp draft</a>` : ''}
+      <a class="btn btn-ghost" id="downloadReceiptPng2">PNG</a>
+      <a class="btn btn-ghost" id="downloadReceiptJpg2">JPG</a>
+    </div>`;
+  document.getElementById('downloadReceiptPng2').onclick = () => {
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = (p.receipt_no||'receipt') + '.png'; a.click();
+  };
+  document.getElementById('downloadReceiptJpg2').onclick = () => {
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/jpeg', 0.92); a.download = (p.receipt_no||'receipt') + '.jpg'; a.click();
+  };
+  openModal('receiptModal');
+}
+
+function drawReceipt(canvasId, {name, code, month, amount, method, paidThrough, receiptNo}){
+  const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#151a23'; ctx.font = '600 26px Space Grotesk, sans-serif';
@@ -548,6 +774,128 @@ async function submitExpense(){
   if (error) { alert(error.message); return; }
   closeModal('expenseModal');
   loadDashboard();
+}
+
+// ---- Bulk "mark previous months paid" ----
+async function applyBulkMarkPaid(){
+  const cutoff = document.getElementById('bp_month').value; // 'YYYY-MM'
+  if (!cutoff){ alert('Pick a cutoff month first.'); return; }
+  const [cy, cm] = cutoff.split('-').map(Number);
+
+  const { data: customers } = await db.from('customers').select('*').eq('status','active');
+  const { data: payments } = await db.from('payments').select('customer_id,billing_month');
+  const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
+
+  const toInsert = [];
+  (customers||[]).forEach(c => {
+    const joined = c.created_at ? new Date(c.created_at) : null;
+    let startY = joined ? joined.getFullYear() : cy;
+    let startM = joined ? joined.getMonth()+1 : 1; // 1-based
+    // safety cap: never look back further than 24 months from cutoff
+    const capMonths = 24;
+    let cursorIdx = cy*12+cm;
+    const startIdx = Math.max(startY*12+startM, cursorIdx-capMonths+1);
+    for (let idx=startIdx; idx<=cursorIdx; idx++){
+      const y = Math.floor((idx-1)/12), m = ((idx-1)%12)+1;
+      const key = c.id + '|' + y + '-' + String(m).padStart(2,'0');
+      if (!existing.has(key)){
+        const lastDay = new Date(y, m, 0).getDate();
+        toInsert.push({
+          customer_id: c.id,
+          billing_month: `${y}-${String(m).padStart(2,'0')}-01`,
+          amount: c.monthly_bill,
+          method: 'backfill',
+          paid_through: `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
+          receipt_no: 'BF' + Date.now() + Math.floor(Math.random()*1000)
+        });
+      }
+    }
+  });
+
+  if (!toInsert.length){ alert('Nothing to mark — everyone is already accounted for up to that month.'); return; }
+  if (!confirm(`This will mark ${toInsert.length} month(s) as paid across your customers, up to ${cutoff}. Continue?`)) return;
+
+  const { error } = await db.from('payments').insert(toInsert);
+  if (error) { alert(error.message); return; }
+  closeModal('bulkPaidModal');
+  alert(`Marked ${toInsert.length} month(s) as paid.`);
+  loadCustomers(); loadDashboard();
+}
+
+// live preview count as the admin picks a cutoff month
+document.addEventListener('input', (e)=>{
+  if (e.target && e.target.id === 'bp_month') previewBulkMarkPaid();
+});
+async function previewBulkMarkPaid(){
+  const cutoff = document.getElementById('bp_month').value;
+  const el = document.getElementById('bp_preview');
+  if (!cutoff){ el.textContent=''; return; }
+  el.textContent = 'Calculating…';
+  const [cy, cm] = cutoff.split('-').map(Number);
+  const { data: customers } = await db.from('customers').select('id,created_at').eq('status','active');
+  const { data: payments } = await db.from('payments').select('customer_id,billing_month');
+  const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
+  let count = 0;
+  (customers||[]).forEach(c => {
+    const joined = c.created_at ? new Date(c.created_at) : null;
+    let startY = joined ? joined.getFullYear() : cy;
+    let startM = joined ? joined.getMonth()+1 : 1;
+    const capMonths = 24;
+    let cursorIdx = cy*12+cm;
+    const startIdx = Math.max(startY*12+startM, cursorIdx-capMonths+1);
+    for (let idx=startIdx; idx<=cursorIdx; idx++){
+      const y = Math.floor((idx-1)/12), m = ((idx-1)%12)+1;
+      const key = c.id + '|' + y + '-' + String(m).padStart(2,'0');
+      if (!existing.has(key)) count++;
+    }
+  });
+  el.textContent = `This will create ${count} adjustment entr${count===1?'y':'ies'} across ${(customers||[]).length} customer(s).`;
+}
+
+// ---- Verifications (manual bKash submissions from the portal) ----
+async function loadVerifications(){
+  const { data, error } = await db.from('payment_verifications').select('*').eq('status','pending').order('submitted_at', { ascending:false });
+  const setupHint = document.getElementById('verifSetupHint');
+  if (error){ setupHint.style.display='block'; document.getElementById('verifRows').innerHTML = ''; return; }
+  setupHint.style.display='none';
+  document.getElementById('verifRows').innerHTML = (data||[]).map(v => `<tr>
+    <td class="muted">${new Date(v.submitted_at).toLocaleString()}</td>
+    <td>${v.customer_name||''} <span class="hint">(${v.customer_code||''})</span></td>
+    <td class="muted">${v.billing_month ? new Date(v.billing_month).toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'}) : ''}</td>
+    <td class="amt">${fmt(v.amount)}</td>
+    <td class="muted">${v.transaction_id}</td>
+    <td style="text-align:right;white-space:nowrap;">
+      <button class="btn btn-primary btn-sm" onclick="approveVerification('${v.id}','${v.customer_id}','${v.billing_month}',${Number(v.amount)||0})">Approve</button>
+      <button class="btn btn-ghost btn-sm" onclick="rejectVerification('${v.id}')">Reject</button>
+    </td></tr>`).join('') || '<tr><td class="hint" colspan="6">No pending submissions.</td></tr>';
+  loadVerificationsBadge();
+}
+
+async function loadVerificationsBadge(){
+  const { data, error } = await db.from('payment_verifications').select('id').eq('status','pending');
+  const dot = document.getElementById('verifDot');
+  if (error){ dot.classList.remove('show'); return; }
+  dot.classList.toggle('show', (data||[]).length > 0);
+}
+
+async function approveVerification(id, customerId, billingMonth, amount){
+  if (!confirm('Approve this and record the payment?')) return;
+  const receiptNo = 'RCPT' + Date.now();
+  const month = billingMonth && billingMonth!=='null' ? billingMonth : (new Date().toISOString().slice(0,7)+'-01');
+  const { error: payErr } = await db.from('payments').insert({
+    customer_id: customerId, billing_month: month, amount, method: 'bkash', paid_through: new Date().toISOString().slice(0,10), receipt_no: receiptNo
+  });
+  if (payErr){ alert(payErr.message); return; }
+  const { error } = await db.from('payment_verifications').update({ status:'approved' }).eq('id', id);
+  if (error){ alert(error.message); return; }
+  loadVerifications(); loadDashboard(); loadCustomers();
+}
+
+async function rejectVerification(id){
+  if (!confirm('Reject this submission?')) return;
+  const { error } = await db.from('payment_verifications').update({ status:'rejected' }).eq('id', id);
+  if (error){ alert(error.message); return; }
+  loadVerifications();
 }
 
 function exportCustomersExcel(){
@@ -607,23 +955,26 @@ async function importCustomersExcel(event){
 
 let trendChartInstance = null;
 async function loadTransactions(){
-  const { data: payments } = await db.from('payments').select('*, customers(name)').order('created_at', { ascending:false });
+  const { data: payments } = await db.from('payments').select('*, customers(name, customer_code, package_type, phone)').order('created_at', { ascending:false });
   document.getElementById('allPayments').innerHTML = (payments||[]).map(p=>`<tr>
     <td class="muted">${new Date(p.created_at).toLocaleDateString()}</td>
     <td>${p.customers?.name||''}</td>
-    <td class="muted">${new Date(p.billing_month).toLocaleString('en',{month:'short',year:'numeric'})}</td>
-    <td class="muted">${p.method}</td><td class="amt">${fmt(p.amount)}</td></tr>`).join('');
+    <td class="muted">${new Date(p.billing_month).toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'})}</td>
+    <td class="muted">${p.method==='backfill' ? '<span class="pill adjusted">Adjusted</span>' : p.method}</td>
+    <td class="amt">${p.method==='backfill' ? '—' : fmt(p.amount)}</td>
+    <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
 
   const { data: expenses } = await db.from('expenses').select('*').order('spent_on', { ascending:false });
   document.getElementById('allExpenses').innerHTML = (expenses||[]).map(e=>`<tr>
     <td class="muted">${new Date(e.spent_on).toLocaleDateString()}</td>
     <td>${e.description}</td><td class="muted">${e.category||''}</td><td class="amt">${fmt(e.amount)}</td></tr>`).join('');
 
+  const realPayments = (payments||[]).filter(p=>p.method!=='backfill');
   const months = [];
   const now = new Date();
   for (let i=5;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); months.push(d); }
   const labels = months.map(d=>d.toLocaleString('en',{month:'short'}));
-  const collectedByMonth = months.map(d => (payments||[]).filter(p=>{
+  const collectedByMonth = months.map(d => realPayments.filter(p=>{
     const pd = new Date(p.billing_month); return pd.getFullYear()===d.getFullYear() && pd.getMonth()===d.getMonth();
   }).reduce((s,p)=>s+Number(p.amount),0));
   const expensesByMonth = months.map(d => (expenses||[]).filter(e=>{
@@ -655,7 +1006,7 @@ async function loadMoneyAllocation(){
 
 async function renderMoneyBreakdown(alloc){
   const monthStart = new Date(); monthStart.setDate(1);
-  const { data: payments } = await db.from('payments').select('amount').gte('billing_month', monthStart.toISOString().slice(0,10));
+  const { data: payments } = await db.from('payments').select('amount').gte('billing_month', monthStart.toISOString().slice(0,10)).neq('method','backfill');
   const collected = (payments||[]).reduce((s,p)=>s+Number(p.amount),0);
   const rows = [
     ['Loan repayment', alloc.loan_repayment_pct], ['Reinvestment', alloc.reinvestment_pct],
