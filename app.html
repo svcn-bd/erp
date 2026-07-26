@@ -787,6 +787,8 @@ async function applyBulkMarkPaid(){
   const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
 
   const toInsert = [];
+  let bfCounter = 0;
+  const bfStamp = Date.now();
   (customers||[]).forEach(c => {
     const joined = c.created_at ? new Date(c.created_at) : null;
     let startY = joined ? joined.getFullYear() : cy;
@@ -806,7 +808,7 @@ async function applyBulkMarkPaid(){
           amount: c.monthly_bill,
           method: 'backfill',
           paid_through: `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
-          receipt_no: 'BF' + Date.now() + Math.floor(Math.random()*1000)
+          receipt_no: 'BF' + bfStamp + '-' + (++bfCounter)
         });
       }
     }
