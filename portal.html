@@ -186,6 +186,12 @@
   .tick-circle svg{width:30px;height:30px;stroke:var(--green);fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:tickDraw .5s ease .1s forwards;}
   @keyframes tickDraw{to{stroke-dashoffset:0;}}
   .tick-circle::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--green);opacity:0;animation:tickRing 1.4s ease-out .1s infinite;}
+  .confetti-stage{position:fixed;inset:0;pointer-events:none;z-index:50;}
+  .confetti-bit{position:absolute;width:8px;height:8px;border-radius:2px;transform:translate(-50%,-50%);animation:confettiPop .9s cubic-bezier(.2,.8,.3,1) forwards;}
+  @keyframes confettiPop{
+    0%{transform:translate(-50%,-50%) translate(0,0) rotate(0deg);opacity:1;}
+    100%{transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0;}
+  }
   @keyframes tickRing{0%{transform:scale(.8);opacity:.7;}100%{transform:scale(1.25);opacity:0;}}
   .verify-tick-wrap h4{font-family:'Space Grotesk',sans-serif;margin:0 0 6px;font-size:15px;}
   .verify-tick-wrap p{font-size:13px;color:var(--text-mid);margin:0 0 4px;max-width:320px;margin-left:auto;margin-right:auto;}
@@ -565,6 +571,7 @@ function showVerifyTick(status){
     msg.textContent = 'Your account has been marked as paid for this month.';
     eta.style.display = 'none';
     retryBtn.style.display = 'none';
+    celebrateApproval(icon);
   } else if (status === 'rejected'){
     icon.classList.add('rejected');
     icon.innerHTML = '<svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
@@ -580,6 +587,32 @@ function showVerifyTick(status){
     eta.style.display = '';
     retryBtn.style.display = 'none';
   }
+}
+
+function celebrateApproval(anchorEl){
+  const colors = ['#2f7de1', '#12a894', '#e2963a', '#7c5ce0', '#1f9d63'];
+  const rect = anchorEl.getBoundingClientRect();
+  const originX = rect.left + rect.width / 2;
+  const originY = rect.top + rect.height / 2;
+  const stage = document.createElement('div');
+  stage.className = 'confetti-stage';
+  document.body.appendChild(stage);
+
+  for (let i = 0; i < 28; i++){
+    const bit = document.createElement('span');
+    bit.className = 'confetti-bit';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 90 + Math.random() * 90;
+    bit.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+    bit.style.setProperty('--dy', (Math.sin(angle) * dist - 40).toFixed(0) + 'px');
+    bit.style.setProperty('--rot', (Math.random() * 720 - 360).toFixed(0) + 'deg');
+    bit.style.left = originX + 'px';
+    bit.style.top = originY + 'px';
+    bit.style.background = colors[i % colors.length];
+    bit.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's';
+    stage.appendChild(bit);
+  }
+  setTimeout(() => stage.remove(), 1400);
 }
 
 function resetVerifyFlow(){
