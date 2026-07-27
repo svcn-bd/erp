@@ -155,12 +155,23 @@
 
   <div id="configWarn">Supabase URL/key not set — edit the CONFIG block near the top of the &lt;script&gt; in this file with your project's values, then reload.</div>
 
+  <div id="adminLoginView" class="panel" style="max-width:380px;margin:60px auto;">
+    <h3>Admin login</h3>
+    <div class="field"><label>Username</label><input id="adminUser" placeholder="e.g. admin"></div>
+    <div class="field"><label>Password</label><input id="adminPass" type="password"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="adminLogin()">Log in</button>
+    <p class="error" id="adminLoginError" style="display:none;color:var(--red);font-size:12px;margin-top:8px;">Incorrect username or password.</p>
+  </div>
+
+<div id="appShell" style="display:none;">
   <div class="topbar">
     <div class="brand">
       <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:'SV'}))"></div>
       <div><p class="brand-name">SVCN</p><p class="brand-sub">ERP</p></div>
     </div>
     <div class="topbar-actions">
+      <span class="hint" id="adminNameTag" style="margin:0 4px 0 0;"></span>
+      <button class="btn btn-ghost" onclick="adminLogout()">Log out</button>
       <button class="btn btn-ghost" onclick="openModal('expenseModal')">+ Expense</button>
       <button class="btn btn-primary" onclick="openModal('paymentModal')">+ Add payment</button>
     </div>
@@ -353,9 +364,27 @@
   <div class="field"><label>Phone</label><input id="ec_phone" placeholder="e.g. 01712345678"></div>
   <div class="field"><label>IP address</label><input id="ec_ip"></div>
   <div class="field"><label>Address</label><input id="ec_address"></div>
+  <div class="field">
+    <label>Payment status override</label>
+    <select id="ec_manual_status">
+      <option value="">Automatic (based on payments)</option>
+      <option value="paid">Force: Paid</option>
+      <option value="unpaid">Force: Unpaid</option>
+    </select>
+  </div>
   <div style="display:flex;gap:8px;margin-top:8px;">
     <button class="btn btn-primary" onclick="submitEditCustomer()">Save changes</button>
     <button class="btn btn-ghost" onclick="closeModal('editCustomerModal')">Cancel</button>
+  </div>
+
+  <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:14px;">
+    <h3 style="font-size:13px;">Adjust dues manually</h3>
+    <div class="row">
+      <div class="field"><label>Amount (Tk, negative to reduce)</label><input id="ec_adj_amount" type="number"></div>
+      <div class="field"><label>Note</label><input id="ec_adj_note" placeholder="e.g. equipment fee"></div>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="submitDueAdjustment()">Add adjustment</button>
+    <div id="ec_adj_history" class="hint" style="margin-top:10px;"></div>
   </div>
 </div></div>
 
@@ -436,6 +465,7 @@
     <button class="btn btn-primary" onclick="sendAiMessage()">Send</button>
   </div>
 </div>
+</div>
 
 <script>
 // ====== CONFIG — replace with your Supabase project values ======
@@ -445,6 +475,7 @@ const GROQ_API_KEY = 'YOUR-GROQ-API-KEY'; // free at console.groq.com — leave 
 // ==================================================================
 
 let db = null;
+let currentAdmin = null;
 let customersCache = [];
 let minimizedModals = {}; // id -> label
 
@@ -500,15 +531,18 @@ function renderMinimizedBar(){
 }
 
 async function loadCustomers(){
-  const { data, error } = await db.from('customers').select('*').eq('status','active').order('name');
+  const { data, error } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id).order('name');
   if (error) { console.error(error); return; }
   customersCache = data;
-  const { data: duesData } = await db.from('customer_dues').select('id,dues');
-  const duesMap = new Map((duesData||[]).map(d => [d.id, d.dues]));
+  const { data: duesData } = await db.from('customer_dues').select('id,dues,manual_status').eq('admin_id', currentAdmin.id);
+  const duesMap = new Map((duesData||[]).map(d => [d.id, d]));
   const rows = document.getElementById('customerRows');
   rows.innerHTML = data.map(c => {
-    const due = duesMap.get(c.id) || 0;
-    const statusCell = due > 0 ? `<span class="pill due">Due ${fmt(due)}</span>` : `<span class="pill paid">Paid</span>`;
+    const info = duesMap.get(c.id) || { dues: 0, manual_status: null };
+    let statusCell;
+    if (info.manual_status === 'paid') statusCell = `<span class="pill paid">Paid (manual)</span>`;
+    else if (info.manual_status === 'unpaid') statusCell = `<span class="pill due">Due (manual)</span>`;
+    else statusCell = info.dues > 0 ? `<span class="pill due">Due ${fmt(info.dues)}</span>` : `<span class="pill paid">Paid</span>`;
     return `<tr>
     <td class="muted">${c.customer_code}</td><td>${c.name}</td>
     <td class="muted">${c.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
@@ -534,7 +568,30 @@ function openEditCustomer(c){
   document.getElementById('ec_phone').value = c.phone || '';
   document.getElementById('ec_ip').value = c.ip_address || '';
   document.getElementById('ec_address').value = c.address || '';
+  document.getElementById('ec_manual_status').value = c.manual_status || '';
+  loadDueAdjustmentHistory(c.id);
   openModal('editCustomerModal');
+}
+
+async function loadDueAdjustmentHistory(customerId){
+  const box = document.getElementById('ec_adj_history');
+  box.textContent = 'Loading…';
+  const { data } = await db.from('due_adjustments').select('*').eq('customer_id', customerId).order('created_at', { ascending:false }).limit(5);
+  if (!data || !data.length){ box.textContent = 'No manual adjustments yet.'; return; }
+  box.innerHTML = data.map(a => `${a.amount > 0 ? '+' : ''}${fmt(a.amount)} — ${a.note || 'no note'} <span style="color:var(--text-lo);">(${new Date(a.created_at).toLocaleDateString()})</span>`).join('<br>');
+}
+
+async function submitDueAdjustment(){
+  const id = document.getElementById('ec_id').value;
+  const amount = Number(document.getElementById('ec_adj_amount').value || 0);
+  const note = document.getElementById('ec_adj_note').value.trim();
+  if (!amount){ alert('Enter a non-zero amount.'); return; }
+  const { error } = await db.from('due_adjustments').insert({ customer_id: id, amount, note });
+  if (error) { alert(error.message); return; }
+  document.getElementById('ec_adj_amount').value = '';
+  document.getElementById('ec_adj_note').value = '';
+  loadDueAdjustmentHistory(id);
+  loadCustomers(); loadDashboard();
 }
 
 async function submitEditCustomer(){
@@ -546,9 +603,10 @@ async function submitEditCustomer(){
     monthly_bill: Number(document.getElementById('ec_bill').value||0),
     phone: document.getElementById('ec_phone').value.trim(),
     ip_address: document.getElementById('ec_ip').value.trim(),
-    address: document.getElementById('ec_address').value.trim()
+    address: document.getElementById('ec_address').value.trim(),
+    manual_status: document.getElementById('ec_manual_status').value || null
   };
-  const { error } = await db.from('customers').update(payload).eq('id', id);
+  const { error } = await db.from('customers').update(payload).eq('id', id).eq('admin_id', currentAdmin.id);
   if (error) { alert(error.message); return; }
   closeModal('editCustomerModal');
   loadCustomers(); loadDashboard();
@@ -556,7 +614,7 @@ async function submitEditCustomer(){
 
 async function removeCustomer(id, name){
   if (!confirm(`Remove ${name}? Their payment history is kept, but they'll no longer appear in customer lists or dues.`)) return;
-  const { error } = await db.from('customers').update({ status:'inactive' }).eq('id', id);
+  const { error } = await db.from('customers').update({ status:'inactive' }).eq('id', id).eq('admin_id', currentAdmin.id);
   if (error) { alert(error.message); return; }
   loadCustomers(); loadDashboard();
 }
@@ -569,8 +627,8 @@ async function loadReminders(){
   const monthVal = picker.value; // 'YYYY-MM'
   const monthLabel = new Date(monthVal+'-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
 
-  const { data: customers } = await db.from('customers').select('*').eq('status','active').order('name');
-  const { data: payments } = await db.from('payments').select('customer_id,billing_month,method').gte('billing_month', monthVal+'-01').lt('billing_month', nextMonthStr(monthVal)+'-01');
+  const { data: customers } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id).order('name');
+  const { data: payments } = await db.from('admin_payments').select('customer_id,billing_month,method').eq('admin_id', currentAdmin.id).gte('billing_month', monthVal+'-01').lt('billing_month', nextMonthStr(monthVal)+'-01');
   const paidSet = new Set((payments||[]).map(p=>p.customer_id));
   const backfillSet = new Set((payments||[]).filter(p=>p.method==='backfill').map(p=>p.customer_id));
 
@@ -611,7 +669,7 @@ async function loadDashboard(){
   const monthStart = new Date(); monthStart.setDate(1);
   const monthStartStr = monthStart.toISOString().slice(0,10);
 
-  const { data: payments } = await db.from('payments').select('*, customers(name, package_type, customer_code, phone)').gte('billing_month', monthStartStr).order('created_at', { ascending:false });
+  const { data: payments } = await db.from('payments').select('*, customers!inner(name, package_type, customer_code, phone)').eq('customers.admin_id', currentAdmin.id).gte('billing_month', monthStartStr).order('created_at', { ascending:false });
   const realPayments = (payments||[]).filter(p=>p.method!=='backfill');
   const collected = realPayments.reduce((s,p)=>s+Number(p.amount),0);
   document.getElementById('mCollected').textContent = fmt(collected);
@@ -621,11 +679,11 @@ async function loadDashboard(){
     <td class="amt">${p.method==='backfill' ? '<span class="pill adjusted">Adjusted</span>' : fmt(p.amount)}</td>
     <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
 
-  const { data: expenses } = await db.from('expenses').select('*').gte('spent_on', monthStartStr);
+  const { data: expenses } = await db.from('expenses').select('*').eq('admin_id', currentAdmin.id).gte('spent_on', monthStartStr);
   const totalExpenses = (expenses||[]).reduce((s,e)=>s+Number(e.amount),0);
   document.getElementById('mExpenses').textContent = fmt(totalExpenses);
 
-  const { data: dues } = await db.from('customer_dues').select('*').gt('dues', 0);
+  const { data: dues } = await db.from('customer_dues').select('*').eq('admin_id', currentAdmin.id).gt('dues', 0);
   const totalDues = (dues||[]).reduce((s,d)=>s+Number(d.dues),0);
   document.getElementById('mDues').textContent = fmt(totalDues);
   document.getElementById('duesList').innerHTML = (dues||[]).slice(0,8).map(d=>`<div class="due-row">
@@ -664,6 +722,7 @@ async function submitCustomer(){
     address: document.getElementById('c_address').value.trim(),
     portal_password: document.getElementById('c_code').value.trim()
   };
+  payload.admin_id = currentAdmin.id;
   const { error } = await db.from('customers').insert(payload);
   if (error) { alert(error.message); return; }
   closeModal('customerModal');
@@ -770,6 +829,7 @@ async function submitExpense(){
     category: document.getElementById('e_cat').value.trim(),
     amount: Number(document.getElementById('e_amount').value||0)
   };
+  payload.admin_id = currentAdmin.id;
   const { error } = await db.from('expenses').insert(payload);
   if (error) { alert(error.message); return; }
   closeModal('expenseModal');
@@ -782,8 +842,8 @@ async function applyBulkMarkPaid(){
   if (!cutoff){ alert('Pick a cutoff month first.'); return; }
   const [cy, cm] = cutoff.split('-').map(Number);
 
-  const { data: customers } = await db.from('customers').select('*').eq('status','active');
-  const { data: payments } = await db.from('payments').select('customer_id,billing_month');
+  const { data: customers } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: payments } = await db.from('admin_payments').select('customer_id,billing_month').eq('admin_id', currentAdmin.id);
   const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
 
   const toInsert = [];
@@ -834,8 +894,8 @@ async function previewBulkMarkPaid(){
   if (!cutoff){ el.textContent=''; return; }
   el.textContent = 'Calculating…';
   const [cy, cm] = cutoff.split('-').map(Number);
-  const { data: customers } = await db.from('customers').select('id,created_at').eq('status','active');
-  const { data: payments } = await db.from('payments').select('customer_id,billing_month');
+  const { data: customers } = await db.from('customers').select('id,created_at').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: payments } = await db.from('admin_payments').select('customer_id,billing_month').eq('admin_id', currentAdmin.id);
   const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
   let count = 0;
   (customers||[]).forEach(c => {
@@ -856,7 +916,7 @@ async function previewBulkMarkPaid(){
 
 // ---- Verifications (manual bKash submissions from the portal) ----
 async function loadVerifications(){
-  const { data, error } = await db.from('payment_verifications').select('*').eq('status','pending').order('submitted_at', { ascending:false });
+  const { data, error } = await db.from('payment_verifications').select('*').eq('status','pending').eq('admin_id', currentAdmin.id).order('submitted_at', { ascending:false });
   const setupHint = document.getElementById('verifSetupHint');
   if (error){ setupHint.style.display='block'; document.getElementById('verifRows').innerHTML = ''; return; }
   setupHint.style.display='none';
@@ -874,7 +934,7 @@ async function loadVerifications(){
 }
 
 async function loadVerificationsBadge(){
-  const { data, error } = await db.from('payment_verifications').select('id').eq('status','pending');
+  const { data, error } = await db.from('payment_verifications').select('id').eq('status','pending').eq('admin_id', currentAdmin.id);
   const dot = document.getElementById('verifDot');
   if (error){ dot.classList.remove('show'); return; }
   dot.classList.toggle('show', (data||[]).length > 0);
@@ -940,14 +1000,15 @@ async function importCustomersExcel(event){
       ip_address: String(findField(r,['ipaddress','ip'])||'').trim(),
       address: String(findField(r,['clientaddress','address'])||'').trim(),
       monthly_bill: parseFloat(((String(findField(r,['clientbill','monthlybill','bill'])||'0')).match(/[\d.]+/)||['0'])[0]) || 0,
-      portal_password: code
+      portal_password: code,
+      admin_id: currentAdmin.id
     };
   }).filter(r => r.customer_code && r.name);
   const byCode = new Map();
   payload.forEach(r => byCode.set(r.customer_code, r)); // later rows overwrite earlier ones with the same code
   const deduped = [...byCode.values()];
   if (!deduped.length){ alert('No valid rows found — check the column headers match the template.'); return; }
-  const { error } = await db.from('customers').upsert(deduped, { onConflict: 'customer_code' });
+  const { error } = await db.from('customers').upsert(deduped, { onConflict: 'admin_id,customer_code' });
   if (error) { alert(error.message); return; }
   event.target.value = '';
   loadCustomers();
@@ -957,7 +1018,7 @@ async function importCustomersExcel(event){
 
 let trendChartInstance = null;
 async function loadTransactions(){
-  const { data: payments } = await db.from('payments').select('*, customers(name, customer_code, package_type, phone)').order('created_at', { ascending:false });
+  const { data: payments } = await db.from('payments').select('*, customers!inner(name, customer_code, package_type, phone)').eq('customers.admin_id', currentAdmin.id).order('created_at', { ascending:false });
   document.getElementById('allPayments').innerHTML = (payments||[]).map(p=>`<tr>
     <td class="muted">${new Date(p.created_at).toLocaleDateString()}</td>
     <td>${p.customers?.name||''}</td>
@@ -966,7 +1027,7 @@ async function loadTransactions(){
     <td class="amt">${p.method==='backfill' ? '—' : fmt(p.amount)}</td>
     <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
 
-  const { data: expenses } = await db.from('expenses').select('*').order('spent_on', { ascending:false });
+  const { data: expenses } = await db.from('expenses').select('*').eq('admin_id', currentAdmin.id).order('spent_on', { ascending:false });
   document.getElementById('allExpenses').innerHTML = (expenses||[]).map(e=>`<tr>
     <td class="muted">${new Date(e.spent_on).toLocaleDateString()}</td>
     <td>${e.description}</td><td class="muted">${e.category||''}</td><td class="amt">${fmt(e.amount)}</td></tr>`).join('');
@@ -1008,7 +1069,7 @@ async function loadMoneyAllocation(){
 
 async function renderMoneyBreakdown(alloc){
   const monthStart = new Date(); monthStart.setDate(1);
-  const { data: payments } = await db.from('payments').select('amount').gte('billing_month', monthStart.toISOString().slice(0,10)).neq('method','backfill');
+  const { data: payments } = await db.from('admin_payments').select('amount').eq('admin_id', currentAdmin.id).gte('billing_month', monthStart.toISOString().slice(0,10)).neq('method','backfill');
   const collected = (payments||[]).reduce((s,p)=>s+Number(p.amount),0);
   const rows = [
     ['Loan repayment', alloc.loan_repayment_pct], ['Reinvestment', alloc.reinvestment_pct],
@@ -1054,7 +1115,7 @@ async function saveTemplates(){
 
 async function exportBackup(){
   const [{ data: customers }, { data: payments }, { data: expenses }] = await Promise.all([
-    db.from('customers').select('*'), db.from('payments').select('*'), db.from('expenses').select('*')
+    db.from('customers').select('*').eq('admin_id', currentAdmin.id), db.from('admin_payments').select('*').eq('admin_id', currentAdmin.id), db.from('expenses').select('*').eq('admin_id', currentAdmin.id)
   ]);
   const blob = new Blob([JSON.stringify({ exported_at:new Date().toISOString(), customers, payments, expenses }, null, 2)], { type:'application/json' });
   const a = document.createElement('a');
@@ -1078,7 +1139,7 @@ async function sendAiMessage(){
     return;
   }
 
-  const { data: dues } = await db.from('customer_dues').select('*').gt('dues', 0);
+  const { data: dues } = await db.from('customer_dues').select('*').eq('admin_id', currentAdmin.id).gt('dues', 0);
   const context = `Customers currently with dues: ${(dues||[]).map(d=>`${d.name} owes ${d.dues}`).join('; ') || 'none'}.`;
 
   box.innerHTML += `<div class="ai-msg bot" id="aiThinking">Thinking...</div>`;
@@ -1103,10 +1164,50 @@ async function sendAiMessage(){
   box.scrollTop = box.scrollHeight;
 }
 
-if (initSupabase()){
+async function adminLogin(){
+  const user = document.getElementById('adminUser').value.trim();
+  const pass = document.getElementById('adminPass').value;
+  document.getElementById('adminLoginError').style.display = 'none';
+  if (!user || !pass) return;
+  const { data, error } = await db.from('admins').select('*').eq('username', user).eq('password', pass).maybeSingle();
+  if (error || !data){ document.getElementById('adminLoginError').style.display = 'block'; return; }
+  currentAdmin = data;
+  localStorage.setItem('svcn_admin_id', data.id);
+  document.getElementById('adminLoginView').style.display = 'none';
+  document.getElementById('appShell').style.display = '';
+  bootApp();
+}
+
+function adminLogout(){
+  currentAdmin = null;
+  localStorage.removeItem('svcn_admin_id');
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('adminLoginView').style.display = '';
+  document.getElementById('adminUser').value = '';
+  document.getElementById('adminPass').value = '';
+}
+
+function bootApp(){
+  document.getElementById('adminNameTag').textContent = currentAdmin.name || currentAdmin.username;
   loadCustomers();
   loadDashboard();
   loadReminderTemplate();
+}
+
+async function tryResumeAdminSession(){
+  const savedId = localStorage.getItem('svcn_admin_id');
+  if (!savedId) return;
+  const { data } = await db.from('admins').select('*').eq('id', savedId).maybeSingle();
+  if (data){
+    currentAdmin = data;
+    document.getElementById('adminLoginView').style.display = 'none';
+    document.getElementById('appShell').style.display = '';
+    bootApp();
+  }
+}
+
+if (initSupabase()){
+  tryResumeAdminSession();
 }
 </script>
 </body>
