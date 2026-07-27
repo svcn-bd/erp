@@ -30,6 +30,9 @@
     .wrap{max-width:620px;}
     .bg-blob{display:block;}
   }
+  @media (max-width:380px){
+    .row{grid-template-columns:1fr;}
+  }
   @media (min-width:1080px){
     .wrap{max-width:700px;}
   }
@@ -53,6 +56,8 @@
   .icon-chip.green{background:var(--green-soft);} .icon-chip.green svg{stroke:var(--green);}
   label{font-size:12px;color:var(--text-mid);display:block;margin:0 0 5px;font-weight:500;}
   .field{margin-bottom:13px;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .dues-note{background:var(--amber-soft);color:var(--amber);font-size:12.5px;padding:10px 12px;border-radius:10px;margin:12px 0;line-height:1.5;}
   input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;transition:border-color .15s ease, box-shadow .15s ease;}
   input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.14);}
   .btn{border:none;font-weight:600;font-size:13px;padding:12px 18px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;transition:transform .15s ease, box-shadow .15s ease;text-decoration:none;}
@@ -82,6 +87,7 @@
   .pill.paid{background:var(--green-soft);color:var(--green);}
   .pill.due{background:var(--red-soft);color:var(--red);}
   .pill.adjusted{background:var(--amber-soft);color:var(--amber);}
+  .pill.partial{background:var(--amber-soft);color:var(--amber);}
   .pill.pending{background:var(--amber-soft);color:var(--amber);}
   .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
   #logoutBtn{background:none;border:none;color:var(--text-lo);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
@@ -251,6 +257,11 @@
           <li>Enter your bill amount, then in the reference field enter your customer ID: <span class="ref-code" id="refCodeHint">—</span></li>
           <li>Complete the send, then copy the <strong>Transaction ID</strong> bKash gives you and paste it below.</li>
         </ol>
+        <p class="dues-note" id="duesNote" style="display:none;"></p>
+        <div class="row">
+          <div class="field"><label>Which month is this for?</label><input id="txnMonth" type="month"></div>
+          <div class="field"><label>Amount sent (Tk)</label><input id="txnAmount" type="number"></div>
+        </div>
         <div class="field"><label>Transaction ID</label><input id="txnId" placeholder="e.g. 8N7A6B5C4D"></div>
         <button class="btn btn-amber" onclick="submitBkashVerification()" id="submitTxnBtn">Submit for verification</button>
         <p class="hint" style="margin-top:8px;" id="bkashSubmitHint"></p>
@@ -332,6 +343,7 @@ const BKASH_NUMBER = '01612551616';      // Send Money number shown to customers
 
 let db = null;
 let currentCustomer = null;
+let currentDues = { dues: 0 };
 
 function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
 
@@ -384,7 +396,10 @@ async function showPortal(){
   document.getElementById('portalView').style.display = '';
 
   const { data: dues } = await db.from('customer_dues').select('*').eq('id', currentCustomer.id).maybeSingle();
-  const isPaid = !dues || dues.dues <= 0;
+  currentDues = dues || { dues: 0 };
+  let isPaid = !dues || dues.dues <= 0;
+  if (currentCustomer.manual_status === 'paid') isPaid = true;
+  if (currentCustomer.manual_status === 'unpaid') isPaid = false;
 
   document.getElementById('custName').textContent = currentCustomer.name;
   document.getElementById('custCode').textContent = currentCustomer.customer_code;
@@ -392,8 +407,19 @@ async function showPortal(){
   document.getElementById('custBill').textContent = fmt(currentCustomer.monthly_bill);
   document.getElementById('refCodeHint').textContent = currentCustomer.customer_code;
   const badge = document.getElementById('statusBadge');
-  badge.textContent = isPaid ? 'Paid' : `Due ${fmt(dues.dues)}`;
+  const displayDue = Math.max(currentDues.dues || 0, isPaid ? 0 : currentCustomer.monthly_bill);
+  badge.textContent = isPaid ? 'Paid' : `Due ${fmt(displayDue)}`;
   badge.className = 'badge ' + (isPaid ? 'paid' : 'due');
+
+  const duesNote = document.getElementById('duesNote');
+  if (!isPaid && currentDues.dues > currentCustomer.monthly_bill){
+    duesNote.style.display = '';
+    duesNote.textContent = `You currently have ${fmt(currentDues.dues)} in total outstanding dues (including this month). Please make sure your payment covers this so it can be approved — otherwise the remaining balance will carry forward.`;
+  } else {
+    duesNote.style.display = 'none';
+  }
+  document.getElementById('txnMonth').value = new Date().toISOString().slice(0,7);
+  document.getElementById('txnAmount').value = Math.max(currentDues.dues || 0, currentCustomer.monthly_bill);
 
   const supportMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I need some help with my connection.`);
   const billingMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I have a question about my bill/account.`);
@@ -414,9 +440,13 @@ function monthKeyFromLocalDate(d){ return d.getFullYear() + '-' + String(d.getMo
 
 async function renderMonthlyLedger(){
   const { data: payments } = await db.from('payments').select('*').eq('customer_id', currentCustomer.id);
-  const paidByMonth = new Map();
+  const byMonth = new Map(); // key -> { total, methods:[], hasBackfill }
   (payments||[]).forEach(p => {
-    paidByMonth.set(monthKeyFromDateStr(p.billing_month), p);
+    const key = monthKeyFromDateStr(p.billing_month);
+    const entry = byMonth.get(key) || { total:0, methods:[], hasBackfill:false };
+    entry.total += Number(p.amount)||0;
+    if (p.method === 'backfill') entry.hasBackfill = true; else entry.methods.push(p.method);
+    byMonth.set(key, entry);
   });
 
   const joined = currentCustomer.created_at ? new Date(currentCustomer.created_at) : null;
@@ -431,12 +461,15 @@ async function renderMonthlyLedger(){
   document.getElementById('histList').innerHTML = months.map(d=>{
     const key = monthKeyFromLocalDate(d);
     const label = d.toLocaleString('en', { month:'long', year:'numeric' });
-    const rec = paidByMonth.get(key);
-    if (rec && rec.method === 'backfill'){
+    const entry = byMonth.get(key);
+    if (entry && entry.hasBackfill && entry.total <= 0){
       return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">Marked paid — adjustment entry</p></div><span class="pill adjusted">Paid</span></div>`;
     }
-    if (rec){
-      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${rec.method} · ${fmt(rec.amount)}</p></div><span class="pill paid">Paid</span></div>`;
+    if (entry && entry.total >= currentCustomer.monthly_bill){
+      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${entry.methods.join(', ')||'adjustment'} · ${fmt(entry.total)}</p></div><span class="pill paid">Paid</span></div>`;
+    }
+    if (entry && entry.total > 0){
+      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${entry.methods.join(', ')||'adjustment'} · ${fmt(entry.total)} of ${fmt(currentCustomer.monthly_bill)}</p></div><span class="pill partial">Partial</span></div>`;
     }
     return `<div class="month-row"><p class="m">${label}</p><span class="pill due">Due</span></div>`;
   }).join('') || '<p class="hint">No billing history yet.</p>';
@@ -482,16 +515,21 @@ async function submitBkashVerification(){
   const hint = document.getElementById('bkashSubmitHint');
   hint.style.color = '';
   if (!txn){ hint.textContent = 'Paste your bKash transaction ID first.'; hint.style.color = 'var(--red)'; return; }
+  const monthPicked = document.getElementById('txnMonth').value; // 'YYYY-MM'
+  if (!monthPicked){ hint.textContent = 'Pick which month this payment is for.'; hint.style.color = 'var(--red)'; return; }
+  const amountSent = Number(document.getElementById('txnAmount').value || 0);
+  if (!amountSent){ hint.textContent = 'Enter the amount you sent.'; hint.style.color = 'var(--red)'; return; }
   const btn = document.getElementById('submitTxnBtn');
   btn.disabled = true; btn.textContent = 'Submitting…';
 
-  const monthVal = new Date().toISOString().slice(0,7) + '-01';
+  const monthVal = monthPicked + '-01';
   const payload = {
     customer_id: currentCustomer.id,
     customer_code: currentCustomer.customer_code,
+    admin_id: currentCustomer.admin_id,
     customer_name: currentCustomer.name,
     transaction_id: txn,
-    amount: currentCustomer.monthly_bill,
+    amount: amountSent,
     billing_month: monthVal,
     status: 'pending'
   };
