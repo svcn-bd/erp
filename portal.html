@@ -141,6 +141,13 @@
   @keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:.3;}}
   .chip{transition:transform .15s ease;} .chip:hover{transform:translateY(-2px);}
 
+  /* ---------- Network / connection status (from Antaranga sync) ---------- */
+  .badge.online{background:var(--green-soft);color:var(--green);}
+  .badge.online::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulseDot 1.6s ease-in-out infinite;}
+  .badge.offline{background:#eef1f5;color:var(--text-mid);}
+  .badge.cant-connect{background:var(--amber-soft);color:var(--amber);}
+  .chip .note{font-size:11px;margin:3px 0 0;}
+
   /* ---------- Movie / FTP showcase banner ---------- */
   .cine-banner{position:relative;border-radius:16px;overflow:hidden;padding:20px;background:
       repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 3px, transparent 3px 24px),
@@ -242,6 +249,17 @@
         <div class="chip"><p class="k">Customer ID</p><p class="v" id="custCode"></p></div>
         <div class="chip"><p class="k">Package</p><p class="v" id="custPackage"></p></div>
         <div class="chip"><p class="k">Monthly bill</p><p class="v" id="custBill"></p></div>
+      </div>
+    </div>
+
+    <div class="panel stagger" id="networkStatusPanel" style="display:none;animation-delay:.05s;">
+      <div class="status-row">
+        <h3 style="margin:0;"><span class="icon-chip teal"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg></span>Connection status</h3>
+        <span class="badge" id="networkOnlineBadge"></span>
+      </div>
+      <div class="chips-row">
+        <div class="chip"><p class="k">Package expiry</p><p class="v" id="networkExpiry">—</p><p class="note hint" id="networkExpiryNote"></p></div>
+        <div class="chip"><p class="k">Last checked</p><p class="v" id="networkSynced">—</p></div>
       </div>
     </div>
 
@@ -433,8 +451,72 @@ async function showPortal(){
   document.getElementById('billingBtn').href = `https://wa.me/${BILLING_PHONE}?text=${billingMsg}`;
 
   await renderMonthlyLedger();
+  await loadNetworkStatus();
   await checkPendingVerification();
   subscribeToVerification();
+}
+
+// ---- Connection status (populated by the Antaranga sync script into `network_status`) ----
+// Some customers won't exist in Antaranga at all (never added there, or added under a
+// different code) — for them this panel just stays hidden and the rest of the portal
+// is completely unaffected.
+function timeAgo(iso){
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs===1?'':'s'} ago`;
+  const days = Math.round(hrs / 24);
+  return `${days} day${days===1?'':'s'} ago`;
+}
+
+async function loadNetworkStatus(){
+  const panel = document.getElementById('networkStatusPanel');
+  let row = null;
+  try {
+    const { data } = await db.from('network_status').select('*').eq('customer_id', currentCustomer.id).maybeSingle();
+    row = data;
+    if (!row){
+      // Fallback in case the sync ever ran before this customer existed locally,
+      // so customer_id didn't get linked but the code still matches.
+      const alt = await db.from('network_status').select('*').eq('antaranga_customer_code', currentCustomer.customer_code).maybeSingle();
+      row = alt.data;
+    }
+  } catch(e){ row = null; } // table missing, RLS not set up yet, etc. — fail quietly, portal stays as-is
+
+  if (!row){ panel.style.display = 'none'; return; }
+  panel.style.display = '';
+
+  const badge = document.getElementById('networkOnlineBadge');
+  const statusMap = { online: ['Online', 'online'], offline: ['Offline', 'offline'], cant_connect: ["Can't connect", 'cant-connect'] };
+  const [label, cls] = statusMap[row.online_status] || [row.online_status ? row.online_status : 'Unknown', 'offline'];
+  badge.textContent = label;
+  badge.className = 'badge ' + cls;
+
+  const expiryEl = document.getElementById('networkExpiry');
+  const expiryNote = document.getElementById('networkExpiryNote');
+  if (row.expiry_date){
+    const exp = new Date(row.expiry_date + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const daysLeft = Math.round((exp - today) / 86400000);
+    expiryEl.textContent = exp.toLocaleDateString('en', { day:'numeric', month:'short', year:'numeric' });
+    if (daysLeft < 0){
+      expiryNote.textContent = `Expired ${Math.abs(daysLeft)} day${Math.abs(daysLeft)===1?'':'s'} ago`;
+      expiryNote.style.color = 'var(--red)';
+    } else if (daysLeft === 0){
+      expiryNote.textContent = 'Expires today';
+      expiryNote.style.color = 'var(--amber)';
+    } else {
+      expiryNote.textContent = `${daysLeft} day${daysLeft===1?'':'s'} remaining`;
+      expiryNote.style.color = daysLeft <= 3 ? 'var(--amber)' : 'var(--text-lo)';
+    }
+  } else {
+    expiryEl.textContent = '—';
+    expiryNote.textContent = '';
+  }
+
+  document.getElementById('networkSynced').textContent = row.last_synced_at ? timeAgo(row.last_synced_at) : '—';
 }
 
 // Use the raw 'YYYY-MM' slice of the stored date string directly — avoids a timezone
