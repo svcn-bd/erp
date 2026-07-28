@@ -222,7 +222,12 @@
     <div class="panel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
         <h3 style="margin:0;">All customers</h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select id="customerSortSelect" style="width:auto;padding:8px 10px;" onchange="renderCustomerRows()">
+            <option value="name">Sort: Name (A–Z)</option>
+            <option value="amount">Sort: Bill amount (high → low)</option>
+            <option value="date">Sort: Join date (newest first)</option>
+          </select>
           <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">Import Excel</button>
           <button class="btn btn-ghost" onclick="exportCustomersExcel()">Export Excel</button>
           <button class="btn btn-amber" onclick="openModal('bulkPaidModal')">Mark months paid</button>
@@ -259,7 +264,14 @@
       <canvas id="trendChart" height="90"></canvas>
     </div>
     <div class="panel">
-      <h3>All payments</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">All payments</h3>
+        <select id="paymentSortSelect" style="width:auto;padding:8px 10px;" onchange="renderPaymentRows()">
+          <option value="date">Sort: Date (newest first)</option>
+          <option value="name">Sort: Customer name (A–Z)</option>
+          <option value="amount">Sort: Amount (high → low)</option>
+        </select>
+      </div>
       <div class="table-wrap"><table>
         <tr><th>Date</th><th>Customer</th><th>Month</th><th>Method</th><th style="text-align:right">Amount</th><th></th></tr>
         <tbody id="allPayments"></tbody>
@@ -308,6 +320,15 @@
   </div>
 
   <div id="tab-settings" style="display:none;">
+    <div class="panel">
+      <h3>Antaranga sync status</h3>
+      <div class="chips-row" style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="field" style="flex:1;min-width:160px;margin:0;"><label>Last synced</label><p id="syncLastRun" style="font-weight:600;margin:4px 0 0;">—</p></div>
+        <div class="field" style="flex:1;min-width:160px;margin:0;"><label>Customers linked</label><p id="syncMatchedCount" style="font-weight:600;margin:4px 0 0;">—</p></div>
+      </div>
+      <p class="hint" id="syncStaleWarning" style="display:none;color:var(--red);"></p>
+      <p class="hint">This updates whenever <code>sync.js</code> runs on your machine. A single run doesn't repeat on its own — either run <code>node sync.js --loop</code> and leave that window open, or schedule it (e.g. Windows Task Scheduler) to run every 15–30 minutes.</p>
+    </div>
     <div class="panel">
       <h3>Business contact numbers</h3>
       <div class="row">
@@ -420,7 +441,7 @@
   </div>
   <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitPayment()">Save & generate receipt</button>
   <div class="hint">Target: ~20-25s once the customer list is loaded and a default amount/date is pre-filled.</div>
-  <canvas id="receiptCanvas" width="640" height="800"></canvas>
+  <canvas id="receiptCanvas" width="640" height="860"></canvas>
   <div id="receiptPreview"></div>
 </div></div>
 
@@ -464,7 +485,7 @@
       <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('receiptModal')">&times;</button>
     </div>
   </div>
-  <canvas id="receiptCanvas2" width="640" height="800"></canvas>
+  <canvas id="receiptCanvas2" width="640" height="860"></canvas>
   <div id="receiptModalPreview"></div>
 </div></div>
 
@@ -493,6 +514,8 @@ let customersCache = [];
 let minimizedModals = {}; // id -> label
 let networkStatusById = new Map();     // customer_id -> network_status row
 let networkStatusByCode = new Map();   // antaranga_customer_code -> network_status row (fallback match)
+let customerDuesMap = new Map();       // customer_id -> { dues, manual_status } — cached so sort re-renders don't refetch
+let paymentsCache = [];                // raw rows from the last loadTransactions() fetch — cached for the same reason
 
 function findNetworkStatus(customer){
   return networkStatusById.get(customer.id) || networkStatusByCode.get(customer.customer_code) || null;
@@ -560,7 +583,7 @@ function switchTab(name){
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===name) ? '' : 'none'; });
   if (name==='transactions') loadTransactions();
   if (name==='money') loadMoneyAllocation();
-  if (name==='settings') loadTemplates();
+  if (name==='settings'){ loadTemplates(); loadSyncStatus(); }
   if (name==='reminders') loadReminders();
   if (name==='verifications') loadVerifications();
 }
@@ -594,7 +617,7 @@ async function loadCustomers(){
   if (error) { console.error(error); return; }
   customersCache = data;
   const { data: duesData } = await db.from('customer_dues').select('id,dues,manual_status').eq('admin_id', currentAdmin.id);
-  const duesMap = new Map((duesData||[]).map(d => [d.id, d]));
+  customerDuesMap = new Map((duesData||[]).map(d => [d.id, d]));
 
   // network_status has no admin scoping of its own (it's populated straight from
   // Antaranga by the sync script) — fetch it all and match client-side against this
@@ -607,9 +630,31 @@ async function loadCustomers(){
     if (n.antaranga_customer_code) networkStatusByCode.set(n.antaranga_customer_code, n);
   });
 
+  renderCustomerRows();
+
+  const sel = document.getElementById('p_customer');
+  sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
+  document.getElementById('mCustomers').textContent = data.length;
+  onPaymentCustomerChange();
+  updateOfflineMetric(data);
+}
+
+// Renders (and re-sorts) the customers table from the already-fetched customersCache —
+// no refetch needed when the admin just changes the sort mode.
+function renderCustomerRows(){
+  const sortMode = document.getElementById('customerSortSelect')?.value || 'name';
+  const list = [...customersCache];
+  if (sortMode === 'name'){
+    list.sort((a,b)=>a.name.localeCompare(b.name));
+  } else if (sortMode === 'amount'){
+    list.sort((a,b)=>Number(b.monthly_bill||0) - Number(a.monthly_bill||0));
+  } else if (sortMode === 'date'){
+    list.sort((a,b)=>new Date(b.created_at||0) - new Date(a.created_at||0));
+  }
+
   const rows = document.getElementById('customerRows');
-  rows.innerHTML = data.map(c => {
-    const info = duesMap.get(c.id) || { dues: 0, manual_status: null };
+  rows.innerHTML = list.map(c => {
+    const info = customerDuesMap.get(c.id) || { dues: 0, manual_status: null };
     let statusCell;
     if (info.manual_status === 'paid') statusCell = `<span class="pill paid">Paid (manual)</span>`;
     else if (info.manual_status === 'unpaid') statusCell = `<span class="pill due">Due (manual)</span>`;
@@ -627,11 +672,6 @@ async function loadCustomers(){
       <button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button>
     </td></tr>`;
   }).join('');
-  const sel = document.getElementById('p_customer');
-  sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
-  document.getElementById('mCustomers').textContent = data.length;
-  onPaymentCustomerChange();
-  updateOfflineMetric(data);
 }
 
 function updateOfflineMetric(customers){
@@ -714,7 +754,10 @@ async function loadReminders(){
   const monthLabel = new Date(monthVal+'-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
 
   const { data: customers } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id).order('name');
-  const { data: payments } = await db.from('admin_payments').select('customer_id,billing_month,method').eq('admin_id', currentAdmin.id).gte('billing_month', monthVal+'-01').lt('billing_month', nextMonthStr(monthVal)+'-01');
+  const customerIds = (customers||[]).map(c=>c.id);
+  const { data: payments } = customerIds.length
+    ? await db.from('payments').select('customer_id,billing_month,method').in('customer_id', customerIds).gte('billing_month', monthVal+'-01').lt('billing_month', nextMonthStr(monthVal)+'-01')
+    : { data: [] };
   const paidSet = new Set((payments||[]).map(p=>p.customer_id));
   const backfillSet = new Set((payments||[]).filter(p=>p.method==='backfill').map(p=>p.customer_id));
 
@@ -884,29 +927,150 @@ function viewReceipt(p){
   openModal('receiptModal');
 }
 
+// Draws a helper rounded-rectangle path (kept manual rather than relying on
+// ctx.roundRect for broader browser support).
+function roundRectPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+// Branded "payment successful" receipt — dark tech background, glowing green
+// checkmark, and a glass info card, matching the look of the promotional graphic.
 function drawReceipt(canvasId, {name, code, month, amount, method, paidThrough, receiptNo}){
   const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = '#151a23'; ctx.font = '600 26px Space Grotesk, sans-serif';
-  ctx.fillText('Payment successful', 40, 60);
-  ctx.font = '400 14px Inter, sans-serif'; ctx.fillStyle = '#6b7686';
-  ctx.fillText('Thank you for your payment', 40, 84);
+  const W = canvas.width, H = canvas.height;
 
+  // Deep navy background
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#0a0e27');
+  bg.addColorStop(1, '#131a3d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Faint scattered network dots for texture
+  for (let i=0; i<55; i++){
+    const dx = Math.random()*W, dy = Math.random()*H;
+    const r = Math.random()*1.6 + 0.4;
+    ctx.beginPath();
+    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(79,209,197,0.3)' : 'rgba(90,150,255,0.28)';
+    ctx.arc(dx, dy, r, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Brand mark, top-left
+  const badgeGrad = ctx.createLinearGradient(20, 16, 70, 66);
+  badgeGrad.addColorStop(0, '#2f7de1'); badgeGrad.addColorStop(1, '#12a894');
+  ctx.beginPath(); ctx.fillStyle = badgeGrad; ctx.arc(46, 42, 24, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = '700 16px "Space Grotesk", Arial, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SV', 46, 43);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff'; ctx.font = '700 15px "Space Grotesk", Arial, sans-serif';
+  ctx.fillText('SATELLITE VISION', 80, 38);
+  ctx.fillStyle = '#8fa3d1'; ctx.font = '600 9px Inter, Arial, sans-serif';
+  ctx.fillText('C A B L E   N E T W O R K', 80, 52);
+
+  // Glowing green checkmark
+  const cx = W/2, cy = 195, R = 60;
+  for (let g=3; g>=1; g--){
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(31,157,99,${0.08*g})`;
+    ctx.arc(cx, cy, R + g*14, 0, Math.PI*2);
+    ctx.fill();
+  }
+  const circleGrad = ctx.createLinearGradient(cx-R, cy-R, cx+R, cy+R);
+  circleGrad.addColorStop(0, '#28c76f'); circleGrad.addColorStop(1, '#1f9d63');
+  ctx.beginPath(); ctx.fillStyle = circleGrad; ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx-26, cy+2);
+  ctx.lineTo(cx-7, cy+22);
+  ctx.lineTo(cx+30, cy-24);
+  ctx.stroke();
+
+  // Sparkle diamonds around the checkmark
+  function diamond(x, y, s, color){
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4);
+    ctx.fillStyle = color; ctx.fillRect(-s/2, -s/2, s, s);
+    ctx.restore();
+  }
+  diamond(cx-105, cy-55, 10, 'rgba(79,209,197,0.8)');
+  diamond(cx+110, cy-40, 8, 'rgba(90,150,255,0.8)');
+  diamond(cx+95, cy+65, 7, 'rgba(79,209,197,0.7)');
+  diamond(cx-95, cy+60, 9, 'rgba(90,150,255,0.6)');
+
+  // Title — "PAYMENT " in white + "SUCCESSFUL!" in green
+  ctx.font = '800 32px "Space Grotesk", Arial, sans-serif';
+  const part1 = 'PAYMENT ', part2 = 'SUCCESSFUL!';
+  const w1 = ctx.measureText(part1).width, w2 = ctx.measureText(part2).width;
+  const startX = cx - (w1+w2)/2;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff'; ctx.fillText(part1, startX, 300);
+  ctx.fillStyle = '#28c76f'; ctx.fillText(part2, startX+w1, 300);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#9aa8cc'; ctx.font = '500 14px Inter, Arial, sans-serif';
+  ctx.fillText(`THANK YOU, ${name.toUpperCase()}`, cx, 328);
+
+  // Glass info card
+  const cardX = 40, cardY = 355, cardW = W-80;
   const rows = [
     ['Customer', name], ['Customer ID', code], ['Billing month', month],
-    ['Amount paid', 'Tk ' + amount], ['Method', method], ['Dues remaining', 'Tk 0'],
-    ['Paid through', paidThrough], ['Receipt no.', receiptNo]
+    ['Amount paid', 'Tk ' + amount], ['Method', method],
+    ['Paid through', paidThrough], ['Dues remaining', 'Tk 0'], ['Receipt no.', receiptNo]
   ];
-  let y = 140;
-  rows.forEach(([label, val])=>{
-    ctx.fillStyle = '#6b7686'; ctx.font = '400 15px Inter, sans-serif'; ctx.fillText(label, 40, y);
-    ctx.fillStyle = '#151a23'; ctx.font = '500 15px Inter, sans-serif'; ctx.fillText(String(val), 300, y);
-    y += 34;
+  const rowH = 34, cardH = rows.length*rowH + 36;
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, 18);
+  ctx.fillStyle = 'rgba(255,255,255,0.045)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(93,169,255,0.35)'; ctx.lineWidth = 1.4; ctx.stroke();
+
+  let ry = cardY + 34;
+  ctx.textAlign = 'left';
+  rows.forEach(([label, val], i)=>{
+    if (i > 0){
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cardX+24, ry-rowH+12); ctx.lineTo(cardX+cardW-24, ry-rowH+12); ctx.stroke();
+    }
+    ctx.fillStyle = '#9aa8cc'; ctx.font = '500 13px Inter, Arial, sans-serif';
+    ctx.fillText(label, cardX+24, ry);
+    ctx.fillStyle = '#fff'; ctx.font = '700 13px Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(val), cardX+cardW-24, ry);
+    ctx.textAlign = 'left';
+    ry += rowH;
   });
-  ctx.fillStyle = '#9aa4b2'; ctx.font = '400 12px Inter, sans-serif';
-  ctx.fillText('This is a computer-generated receipt.', 40, y+30);
-  ctx.fillText('Please clear the bill by today. If a delay is needed, kindly let us know beforehand.', 40, y+50);
+
+  // Highlight row — small check-badge icons
+  const iconY = cardY + cardH + 40;
+  const highlights = [['Secure payment', '#2f7de1'], ['Instant confirmation', '#12a894'], ['24/7 support', '#7c5ce0']];
+  const slotW = cardW / 3;
+  highlights.forEach(([label, color], i)=>{
+    const hx = cardX + slotW*i + slotW/2;
+    ctx.beginPath(); ctx.fillStyle = color + '33'; ctx.arc(hx, iconY, 16, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = color; ctx.font = '700 13px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('✓', hx, iconY+1);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#c7d0ea'; ctx.font = '600 10px Inter, Arial, sans-serif';
+    ctx.fillText(label, hx, iconY+34);
+  });
+  ctx.textAlign = 'left';
+
+  // Footer tagline
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff'; ctx.font = 'italic 600 17px Georgia, serif';
+  ctx.fillText('Stay Connected, Stay Enjoyed', cx, iconY+80);
+  ctx.fillStyle = '#28c76f'; ctx.font = '600 12px Arial, sans-serif';
+  ctx.fillText('আপনার আস্থা, আমাদের দায়িত্ব', cx, iconY+102);
+  ctx.fillStyle = '#5c6a94'; ctx.font = '400 10px Inter, Arial, sans-serif';
+  ctx.fillText('This is a computer-generated receipt — no signature required.', cx, iconY+126);
+  ctx.textAlign = 'left';
 }
 
 async function submitExpense(){
@@ -929,7 +1093,10 @@ async function applyBulkMarkPaid(){
   const [cy, cm] = cutoff.split('-').map(Number);
 
   const { data: customers } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id);
-  const { data: payments } = await db.from('admin_payments').select('customer_id,billing_month').eq('admin_id', currentAdmin.id);
+  const customerIds = (customers||[]).map(c=>c.id);
+  const { data: payments } = customerIds.length
+    ? await db.from('payments').select('customer_id,billing_month').in('customer_id', customerIds)
+    : { data: [] };
   const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
 
   const toInsert = [];
@@ -981,7 +1148,10 @@ async function previewBulkMarkPaid(){
   el.textContent = 'Calculating…';
   const [cy, cm] = cutoff.split('-').map(Number);
   const { data: customers } = await db.from('customers').select('id,created_at').eq('status','active').eq('admin_id', currentAdmin.id);
-  const { data: payments } = await db.from('admin_payments').select('customer_id,billing_month').eq('admin_id', currentAdmin.id);
+  const customerIds = (customers||[]).map(c=>c.id);
+  const { data: payments } = customerIds.length
+    ? await db.from('payments').select('customer_id,billing_month').in('customer_id', customerIds)
+    : { data: [] };
   const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
   let count = 0;
   (customers||[]).forEach(c => {
@@ -1105,20 +1275,15 @@ async function importCustomersExcel(event){
 let trendChartInstance = null;
 async function loadTransactions(){
   const { data: payments } = await db.from('payments').select('*, customers!inner(name, customer_code, package_type, phone)').eq('customers.admin_id', currentAdmin.id).order('created_at', { ascending:false });
-  document.getElementById('allPayments').innerHTML = (payments||[]).map(p=>`<tr>
-    <td class="muted">${new Date(p.created_at).toLocaleDateString()}</td>
-    <td>${p.customers?.name||''}</td>
-    <td class="muted">${new Date(p.billing_month).toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'})}</td>
-    <td class="muted">${p.method==='backfill' ? '<span class="pill adjusted">Adjusted</span>' : p.method}</td>
-    <td class="amt">${p.method==='backfill' ? '—' : fmt(p.amount)}</td>
-    <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
+  paymentsCache = payments || [];
+  renderPaymentRows();
 
   const { data: expenses } = await db.from('expenses').select('*').eq('admin_id', currentAdmin.id).order('spent_on', { ascending:false });
   document.getElementById('allExpenses').innerHTML = (expenses||[]).map(e=>`<tr>
     <td class="muted">${new Date(e.spent_on).toLocaleDateString()}</td>
     <td>${e.description}</td><td class="muted">${e.category||''}</td><td class="amt">${fmt(e.amount)}</td></tr>`).join('');
 
-  const realPayments = (payments||[]).filter(p=>p.method!=='backfill');
+  const realPayments = paymentsCache.filter(p=>p.method!=='backfill');
   const months = [];
   const now = new Date();
   for (let i=5;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); months.push(d); }
@@ -1142,6 +1307,27 @@ async function loadTransactions(){
   });
 }
 
+// Renders (and re-sorts) the payments table from paymentsCache — no refetch needed
+// when the admin just changes the sort mode.
+function renderPaymentRows(){
+  const sortMode = document.getElementById('paymentSortSelect')?.value || 'date';
+  const list = [...paymentsCache];
+  if (sortMode === 'date'){
+    list.sort((a,b)=>new Date(b.created_at) - new Date(a.created_at));
+  } else if (sortMode === 'name'){
+    list.sort((a,b)=>(a.customers?.name||'').localeCompare(b.customers?.name||''));
+  } else if (sortMode === 'amount'){
+    list.sort((a,b)=>Number(b.amount||0) - Number(a.amount||0));
+  }
+  document.getElementById('allPayments').innerHTML = list.map(p=>`<tr>
+    <td class="muted">${new Date(p.created_at).toLocaleDateString()}</td>
+    <td>${p.customers?.name||''}</td>
+    <td class="muted">${new Date(p.billing_month).toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'})}</td>
+    <td class="muted">${p.method==='backfill' ? '<span class="pill adjusted">Adjusted</span>' : p.method}</td>
+    <td class="amt">${p.method==='backfill' ? '—' : fmt(p.amount)}</td>
+    <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
+}
+
 async function loadMoneyAllocation(){
   const { data } = await db.from('money_allocation').select('*').eq('id',1).single();
   if (!data) return;
@@ -1155,7 +1341,7 @@ async function loadMoneyAllocation(){
 
 async function renderMoneyBreakdown(alloc){
   const monthStart = new Date(); monthStart.setDate(1);
-  const { data: payments } = await db.from('admin_payments').select('amount').eq('admin_id', currentAdmin.id).gte('billing_month', monthStart.toISOString().slice(0,10)).neq('method','backfill');
+  const { data: payments } = await db.from('payments').select('amount, customers!inner(admin_id)').eq('customers.admin_id', currentAdmin.id).gte('billing_month', monthStart.toISOString().slice(0,10)).neq('method','backfill');
   const collected = (payments||[]).reduce((s,p)=>s+Number(p.amount),0);
   const rows = [
     ['Loan repayment', alloc.loan_repayment_pct], ['Reinvestment', alloc.reinvestment_pct],
@@ -1189,6 +1375,33 @@ async function loadTemplates(){
   document.getElementById('t_reminder').value = map.reminder || '';
 }
 
+async function loadSyncStatus(){
+  const runEl = document.getElementById('syncLastRun');
+  const matchedEl = document.getElementById('syncMatchedCount');
+  const warnEl = document.getElementById('syncStaleWarning');
+  const { data: customers } = await db.from('customers').select('id,customer_code').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: netRows, error } = await db.from('network_status').select('customer_id,antaranga_customer_code,last_synced_at').order('last_synced_at', { ascending:false });
+  if (error){ runEl.textContent = 'Not set up yet'; matchedEl.textContent = '—'; return; }
+
+  const byId = new Map(), byCode = new Map();
+  (netRows||[]).forEach(n => { if (n.customer_id) byId.set(n.customer_id, n); if (n.antaranga_customer_code) byCode.set(n.antaranga_customer_code, n); });
+  const matched = (customers||[]).filter(c => byId.has(c.id) || byCode.has(c.customer_code)).length;
+  matchedEl.textContent = `${matched} of ${(customers||[]).length}`;
+
+  const latest = (netRows||[])[0]?.last_synced_at;
+  if (!latest){ runEl.textContent = 'Never run yet'; return; }
+  const synced = new Date(latest);
+  runEl.textContent = synced.toLocaleString();
+
+  const hoursAgo = (Date.now() - synced.getTime()) / 3600000;
+  if (hoursAgo > 2){
+    warnEl.style.display = 'block';
+    warnEl.textContent = `This hasn't updated in ${Math.round(hoursAgo)} hour${Math.round(hoursAgo)===1?'':'s'} — sync.js probably isn't running right now.`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
 async function saveTemplates(){
   const rows = [
     { id:'payment_confirmation', body: document.getElementById('t_payment').value },
@@ -1201,7 +1414,9 @@ async function saveTemplates(){
 
 async function exportBackup(){
   const [{ data: customers }, { data: payments }, { data: expenses }] = await Promise.all([
-    db.from('customers').select('*').eq('admin_id', currentAdmin.id), db.from('admin_payments').select('*').eq('admin_id', currentAdmin.id), db.from('expenses').select('*').eq('admin_id', currentAdmin.id)
+    db.from('customers').select('*').eq('admin_id', currentAdmin.id),
+    db.from('payments').select('*, customers!inner(admin_id)').eq('customers.admin_id', currentAdmin.id),
+    db.from('expenses').select('*').eq('admin_id', currentAdmin.id)
   ]);
   const blob = new Blob([JSON.stringify({ exported_at:new Date().toISOString(), customers, payments, expenses }, null, 2)], { type:'application/json' });
   const a = document.createElement('a');
