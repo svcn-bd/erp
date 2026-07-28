@@ -46,7 +46,7 @@
   .tab.active{background:var(--card);color:var(--blue-deep);border:1px solid var(--border);box-shadow:0 2px 8px rgba(21,26,35,.05);}
   .tab .tab-dot{position:absolute;top:4px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;}
   .tab .tab-dot.show{display:block;}
-  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px;}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:22px;}
   .metric{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;transition:transform .15s ease, box-shadow .15s ease;position:relative;overflow:hidden;}
   .metric:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(21,26,35,.08);}
   .metric::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--blue);opacity:.55;}
@@ -102,6 +102,13 @@
   .pill.due{background:var(--red-soft);color:var(--red);}
   .pill.adjusted{background:var(--amber-soft);color:var(--amber);}
   .pill.pending{background:var(--amber-soft);color:var(--amber);}
+  .pill.online{background:var(--green-soft);color:var(--green);}
+  .pill.offline{background:#eef1f5;color:var(--text-mid);}
+  .pill.cant-connect{background:var(--amber-soft);color:var(--amber);}
+  .antaranga-row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12.5px;border-top:1px solid var(--border);}
+  .antaranga-row:first-child{border-top:none;}
+  .antaranga-row span:first-child{color:var(--text-mid);}
+  .antaranga-row span:last-child{text-align:right;font-weight:500;}
   .tab[data-tab="customers"].active{color:var(--blue-deep);}
   .tab[data-tab="reminders"].active{color:var(--red);}
   .tab[data-tab="transactions"].active{color:var(--amber);}
@@ -193,6 +200,7 @@
       <div class="metric due"><p class="label">Dues outstanding</p><p class="value" id="mDues">৳0</p></div>
       <div class="metric ok"><p class="label">Active customers</p><p class="value" id="mCustomers">0</p></div>
       <div class="metric"><p class="label">Expenses — this month</p><p class="value" id="mExpenses">৳0</p></div>
+      <div class="metric due"><p class="label">Offline / can't connect</p><p class="value" id="mOffline">0</p></div>
     </div>
 
     <div class="grid2">
@@ -223,7 +231,7 @@
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importCustomersExcel(event)">
       </div>
       <div class="table-wrap"><table>
-        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th>Status</th><th></th></tr>
+        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th>Status</th><th>Network</th><th>Expiry</th><th></th></tr>
         <tbody id="customerRows"></tbody>
       </table></div>
     </div>
@@ -378,6 +386,11 @@
   </div>
 
   <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:14px;">
+    <h3 style="font-size:13px;">Antaranga network info</h3>
+    <div id="ec_antaranga_content" class="hint">—</div>
+  </div>
+
+  <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:14px;">
     <h3 style="font-size:13px;">Adjust dues manually</h3>
     <div class="row">
       <div class="field"><label>Amount (Tk, negative to reduce)</label><input id="ec_adj_amount" type="number"></div>
@@ -478,6 +491,52 @@ let db = null;
 let currentAdmin = null;
 let customersCache = [];
 let minimizedModals = {}; // id -> label
+let networkStatusById = new Map();     // customer_id -> network_status row
+let networkStatusByCode = new Map();   // antaranga_customer_code -> network_status row (fallback match)
+
+function findNetworkStatus(customer){
+  return networkStatusById.get(customer.id) || networkStatusByCode.get(customer.customer_code) || null;
+}
+
+function renderNetworkPill(net){
+  if (!net) return '<span class="hint">—</span>';
+  const map = { online: ['Online','online'], offline: ['Offline','offline'], cant_connect: ["Can't connect",'cant-connect'] };
+  const [label, cls] = map[net.online_status] || [net.online_status || 'Unknown', 'offline'];
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
+function renderExpiryCell(net){
+  if (!net || !net.expiry_date) return '<span class="hint">—</span>';
+  const exp = new Date(net.expiry_date + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const daysLeft = Math.round((exp - today) / 86400000);
+  const label = exp.toLocaleDateString('en', { day:'numeric', month:'short' });
+  if (daysLeft < 0) return `<span style="color:var(--red);font-weight:600;">${label} (expired)</span>`;
+  if (daysLeft <= 3) return `<span style="color:var(--amber);font-weight:600;">${label} (${daysLeft}d)</span>`;
+  return label;
+}
+
+// Full read-only detail shown in the edit-customer modal — every field the Antaranga
+// sync pulled in for this customer. If they were never found in Antaranga at all
+// (added manually here, code mismatch, etc.), this just says so plainly.
+function renderAntarangaDetail(net){
+  if (!net) return 'Not found in Antaranga — this customer isn\'t linked to a matching record there.';
+  const rows = [
+    ['Status', renderNetworkPill(net)],
+    ['Expiry', renderExpiryCell(net)],
+    ['Package (Antaranga)', net.package_name || '—'],
+    ['Bill amount (Antaranga)', net.bill_amount != null ? fmt(net.bill_amount) : '—'],
+    ['Mobile (Antaranga)', net.mobile || '—'],
+    ['Address (Antaranga)', net.address || '—'],
+    ['Bill cycle (day of month)', net.bill_cycle || '—'],
+    ['Manager', net.manager || '—'],
+    ['POP', net.pop || '—'],
+    ['Antaranga internal ID', net.antaranga_internal_id || '—'],
+    ['Enabled in Antaranga', net.is_enabled === false ? 'No' : (net.is_enabled === true ? 'Yes' : '—')],
+    ['Last synced', net.last_synced_at ? new Date(net.last_synced_at).toLocaleString() : '—']
+  ];
+  return rows.map(([k,v]) => `<div class="antaranga-row"><span>${k}</span><span>${v}</span></div>`).join('');
+}
 
 function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
 
@@ -536,6 +595,18 @@ async function loadCustomers(){
   customersCache = data;
   const { data: duesData } = await db.from('customer_dues').select('id,dues,manual_status').eq('admin_id', currentAdmin.id);
   const duesMap = new Map((duesData||[]).map(d => [d.id, d]));
+
+  // network_status has no admin scoping of its own (it's populated straight from
+  // Antaranga by the sync script) — fetch it all and match client-side against this
+  // admin's customers, by customer_id first and by antaranga_customer_code as a fallback.
+  const { data: networkData } = await db.from('network_status').select('*');
+  networkStatusById = new Map();
+  networkStatusByCode = new Map();
+  (networkData||[]).forEach(n => {
+    if (n.customer_id) networkStatusById.set(n.customer_id, n);
+    if (n.antaranga_customer_code) networkStatusByCode.set(n.antaranga_customer_code, n);
+  });
+
   const rows = document.getElementById('customerRows');
   rows.innerHTML = data.map(c => {
     const info = duesMap.get(c.id) || { dues: 0, manual_status: null };
@@ -543,11 +614,14 @@ async function loadCustomers(){
     if (info.manual_status === 'paid') statusCell = `<span class="pill paid">Paid (manual)</span>`;
     else if (info.manual_status === 'unpaid') statusCell = `<span class="pill due">Due (manual)</span>`;
     else statusCell = info.dues > 0 ? `<span class="pill due">Due ${fmt(info.dues)}</span>` : `<span class="pill paid">Paid</span>`;
+    const net = findNetworkStatus(c);
     return `<tr>
     <td class="muted">${c.customer_code}</td><td>${c.name}</td>
     <td class="muted">${c.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
     <td class="muted">${c.phone||''}</td><td class="amt">${fmt(c.monthly_bill)}</td>
     <td>${statusCell}</td>
+    <td>${renderNetworkPill(net)}</td>
+    <td class="muted">${renderExpiryCell(net)}</td>
     <td style="text-align:right;white-space:nowrap;">
       <button class="row-edit" title="Edit customer" onclick='openEditCustomer(${JSON.stringify(c)})'><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       <button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button>
@@ -557,6 +631,17 @@ async function loadCustomers(){
   sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
   document.getElementById('mCustomers').textContent = data.length;
   onPaymentCustomerChange();
+  updateOfflineMetric(data);
+}
+
+function updateOfflineMetric(customers){
+  let offline = 0;
+  (customers||[]).forEach(c => {
+    const net = findNetworkStatus(c);
+    if (net && net.online_status && net.online_status !== 'online') offline++;
+  });
+  const el = document.getElementById('mOffline');
+  if (el) el.textContent = offline;
 }
 
 function openEditCustomer(c){
@@ -569,6 +654,7 @@ function openEditCustomer(c){
   document.getElementById('ec_ip').value = c.ip_address || '';
   document.getElementById('ec_address').value = c.address || '';
   document.getElementById('ec_manual_status').value = c.manual_status || '';
+  document.getElementById('ec_antaranga_content').innerHTML = renderAntarangaDetail(findNetworkStatus(c));
   loadDueAdjustmentHistory(c.id);
   openModal('editCustomerModal');
 }
