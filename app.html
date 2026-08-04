@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --bg:#0a0e27; --bg-end:#131a3d; --card:#141a35; --card-2:#1a2147;
@@ -118,6 +119,9 @@
   .pill.online{background:var(--green-soft);color:var(--green);}
   .pill.offline{background:#eef1f5;color:var(--text-mid);}
   .pill.cant-connect{background:var(--amber-soft);color:var(--amber);}
+  .pill.open{background:var(--red-soft);color:var(--red);}
+  .pill.in-progress{background:var(--amber-soft);color:var(--amber);}
+  .pill.resolved{background:var(--green-soft);color:var(--green);}
   .antaranga-row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12.5px;border-top:1px solid var(--border);}
   .antaranga-row:first-child{border-top:none;}
   .antaranga-row span:first-child{color:var(--text-mid);}
@@ -208,6 +212,7 @@
     <div class="tab" data-tab="reminders" onclick="switchTab('reminders')">Reminders</div>
     <div class="tab" data-tab="transactions" onclick="switchTab('transactions')">Transactions</div>
     <div class="tab" data-tab="verifications" onclick="switchTab('verifications')">Verifications<span class="tab-dot" id="verifDot"></span></div>
+    <div class="tab" data-tab="tickets" onclick="switchTab('tickets')">Tickets<span class="tab-dot" id="ticketDot"></span></div>
     <div class="tab" data-tab="money" onclick="switchTab('money')">Money</div>
     <div class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</div>
   </div>
@@ -221,6 +226,7 @@
       <div class="metric due"><p class="label">Offline / can't connect</p><p class="value" id="mOffline">0</p></div>
       <div class="metric"><p class="label">Bandwidth cost — this month</p><p class="value" id="mBandwidth">৳0</p><p class="hint" id="mBandwidthNote" style="margin:4px 0 0;"></p></div>
       <div class="metric ok"><p class="label">Actual profit — this month</p><p class="value" id="mProfit">৳0</p></div>
+      <div class="metric due"><p class="label">Open tickets</p><p class="value" id="mTickets">0</p></div>
     </div>
     <p class="hint" style="margin:-14px 0 22px;">Actual profit = Collected − Expenses − Bandwidth cost (what Antaranga charges you per connection).</p>
 
@@ -267,8 +273,9 @@
     <div class="panel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:10px;">
         <h3 style="margin:0;">Billing cycle</h3>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <input type="month" id="reminderMonthPicker" style="width:auto;padding:8px 10px;" onchange="loadReminders()">
+          <button class="btn btn-amber" id="bulkReminderBtn" onclick="startBulkReminders()" disabled>Send reminders to all due</button>
         </div>
       </div>
       <p class="hint" style="margin:0 0 14px;">Pick any month to track — every active customer for that billing cycle, with a reminder you can send to anyone still unpaid.</p>
@@ -319,6 +326,29 @@
     </div>
   </div>
 
+  <div id="tab-tickets" style="display:none;">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Complaints &amp; tickets</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select id="ticketStatusFilter" style="width:auto;padding:8px 10px;" onchange="loadTickets()">
+            <option value="open_and_progress">Open + In progress</option>
+            <option value="open">Open only</option>
+            <option value="in_progress">In progress only</option>
+            <option value="resolved">Resolved</option>
+            <option value="all">All</option>
+          </select>
+          <button class="btn btn-primary" onclick="openNewTicketModal()">+ New ticket</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <tr><th>Reported</th><th>Customer</th><th>Issue</th><th>Status</th><th></th></tr>
+        <tbody id="ticketRows"></tbody>
+      </table></div>
+      <p class="hint" id="ticketSetupHint" style="display:none;">This needs a <code>tickets</code> table in Supabase — see the setup note shared alongside this file.</p>
+    </div>
+  </div>
+
   <div id="tab-money" style="display:none;">
     <div class="panel">
       <h3>Money allocation (%)</h3>
@@ -338,6 +368,11 @@
       <h3>This month's split (based on actual profit, after expenses &amp; bandwidth cost)</h3>
       <div id="m_breakdown"></div>
     </div>
+    <div class="panel">
+      <h3>Monthly report</h3>
+      <p class="hint" style="margin-top:0;">A one-page summary — collected, expenses by category, bandwidth cost, actual profit, and dues outstanding — for your own records.</p>
+      <button class="btn btn-primary" onclick="exportMonthlyPnL()">Download monthly P&amp;L (PDF)</button>
+    </div>
   </div>
 
   <div id="tab-settings" style="display:none;">
@@ -350,6 +385,21 @@
       </div>
       <p class="hint" id="syncStaleWarning" style="display:none;color:var(--red);"></p>
       <p class="hint">This updates whenever <code>sync.js</code> runs on your machine. A single run doesn't repeat on its own — either run <code>node sync.js --loop</code> and leave that window open, or schedule it (e.g. Windows Task Scheduler) to run every 15–30 minutes.</p>
+    </div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Recurring expenses</h3>
+        <button class="btn btn-amber" onclick="applyRecurringExpenses()">Add this month's recurring expenses</button>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">Define these once — rent, staff salary, a fixed contract — then click the button above each month to drop them into Expenses. Already-added ones this month are skipped automatically.</p>
+      <div class="row">
+        <div class="field"><label>Description</label><input id="re_desc" placeholder="e.g. Office rent"></div>
+        <div class="field"><label>Category</label><input id="re_cat" placeholder="e.g. Rent"></div>
+      </div>
+      <div class="field" style="max-width:200px;"><label>Amount (Tk)</label><input id="re_amount" type="number"></div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:14px;" onclick="submitRecurringExpense()">Add template</button>
+      <div id="recurringExpenseRows"></div>
+      <p class="hint" id="recurringSetupHint" style="display:none;">This needs a <code>recurring_expenses</code> table in Supabase — see the setup note shared alongside this file.</p>
     </div>
     <div class="panel">
       <h3>Business contact numbers</h3>
@@ -493,6 +543,53 @@
   <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitExpense()">Save expense</button>
 </div></div>
 
+<!-- New ticket modal -->
+<div class="modal-bg" id="ticketModal-bg"><div class="modal">
+  <div class="modal-head"><h3>New ticket</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn" title="Minimize" onclick="minimizeModal('ticketModal')">&#8211;</button>
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('ticketModal')">&times;</button>
+    </div>
+  </div>
+  <div class="field"><label>Customer</label><select id="tk_customer"></select></div>
+  <div class="field"><label>Issue</label><textarea id="tk_desc" rows="3" placeholder="e.g. No internet since this morning, checked router, still red light" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;"></textarea></div>
+  <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitTicket()">Log ticket</button>
+</div></div>
+
+<!-- Resolve ticket modal -->
+<div class="modal-bg" id="resolveTicketModal-bg"><div class="modal">
+  <div class="modal-head"><h3>Resolve ticket</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('resolveTicketModal')">&times;</button>
+    </div>
+  </div>
+  <input type="hidden" id="rt_id">
+  <p class="hint" id="rt_issue_preview" style="margin-top:0;"></p>
+  <div class="field"><label>Resolution note</label><textarea id="rt_note" rows="3" placeholder="e.g. Replaced faulty patch cord, confirmed working" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;"></textarea></div>
+  <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitResolveTicket()">Mark resolved</button>
+</div></div>
+
+<!-- Guided bulk WhatsApp reminders — WhatsApp has no real bulk-send without their paid
+     Business API, so this steps through each due customer one at a time: open their
+     pre-filled draft, you hit send in WhatsApp, then move to the next. -->
+<div class="modal-bg" id="bulkReminderModal-bg"><div class="modal">
+  <div class="modal-head"><h3>Send reminders</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('bulkReminderModal')">&times;</button>
+    </div>
+  </div>
+  <p class="hint" id="bulkReminderProgress" style="margin-top:0;"></p>
+  <div id="bulkReminderCard" style="background:var(--blue-soft);border-radius:12px;padding:16px;margin-bottom:14px;">
+    <p style="margin:0 0 4px;font-weight:700;font-size:15px;" id="bulkReminderName">—</p>
+    <p style="margin:0;color:var(--text-mid);font-size:13px;" id="bulkReminderAmount">—</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary" id="bulkReminderOpenBtn" style="flex:1;justify-content:center;" onclick="bulkReminderOpenAndNext()">Open WhatsApp draft</button>
+    <button class="btn btn-ghost" onclick="bulkReminderSkip()">Skip</button>
+  </div>
+  <p class="hint" style="margin-top:12px;">Each click opens that customer's pre-filled WhatsApp message in a new tab — you just hit send there, then come back and continue.</p>
+</div></div>
+
 <!-- Bulk mark-months-paid modal -->
 <div class="modal-bg" id="bulkPaidModal-bg"><div class="modal">
   <div class="modal-head"><h3>Mark previous months as paid</h3>
@@ -627,15 +724,16 @@ function initSupabase(){
   return true;
 }
 
-const TABS = ['dashboard','customers','reminders','transactions','verifications','money','settings'];
+const TABS = ['dashboard','customers','reminders','transactions','verifications','tickets','money','settings'];
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===name) ? '' : 'none'; });
   if (name==='transactions') loadTransactions();
   if (name==='money') loadMoneyAllocation();
-  if (name==='settings'){ loadTemplates(); loadSyncStatus(); }
+  if (name==='settings'){ loadTemplates(); loadSyncStatus(); loadRecurringExpenses(); }
   if (name==='reminders') loadReminders();
   if (name==='verifications') loadVerifications();
+  if (name==='tickets') loadTickets();
 }
 
 function openModal(id){ document.getElementById(id+'-bg').classList.add('open'); delete minimizedModals[id]; renderMinimizedBar(); }
@@ -847,13 +945,17 @@ async function loadReminders(){
   const paidSet = new Set((payments||[]).map(p=>p.customer_id));
   const backfillSet = new Set((payments||[]).filter(p=>p.method==='backfill').map(p=>p.customer_id));
 
+  reminderDueQueue = [];
   document.getElementById('reminderRows').innerHTML = (customers||[]).map(c=>{
     const paid = paidSet.has(c.id);
     const adjusted = backfillSet.has(c.id);
     let statusCell;
     if (paid && adjusted) statusCell = '<span class="pill adjusted">Paid (adjusted)</span>';
     else if (paid) statusCell = '<span style="color:var(--green);font-weight:600;">Paid</span>';
-    else statusCell = `<span style="color:var(--red);font-weight:600;">Due ${fmt(c.monthly_bill)}</span>`;
+    else {
+      statusCell = `<span style="color:var(--red);font-weight:600;">Due ${fmt(c.monthly_bill)}</span>`;
+      reminderDueQueue.push({ name: c.name, phone: c.phone, amount: c.monthly_bill, monthLabel });
+    }
     return `<tr>
       <td>${c.name}</td>
       <td class="muted">${fmt(c.monthly_bill)}</td>
@@ -861,6 +963,52 @@ async function loadReminders(){
       <td style="text-align:right;">${paid ? '' : `<a class="wa-btn" href="${waLink(c.phone, buildReminderMessageFor(c.name, c.monthly_bill, monthLabel))}" target="_blank" title="Send reminder"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`}</td>
     </tr>`;
   }).join('') || '<tr><td class="hint" colspan="4">No active customers yet.</td></tr>';
+
+  const bulkBtn = document.getElementById('bulkReminderBtn');
+  bulkBtn.disabled = reminderDueQueue.length === 0;
+  bulkBtn.textContent = reminderDueQueue.length ? `Send reminders to all due (${reminderDueQueue.length})` : 'Send reminders to all due';
+}
+
+// ---- Guided bulk WhatsApp reminders ----
+let reminderDueQueue = [];
+let bulkReminderIndex = 0;
+
+function startBulkReminders(){
+  if (!reminderDueQueue.length) return;
+  bulkReminderIndex = 0;
+  openModal('bulkReminderModal');
+  renderBulkReminderStep();
+}
+
+function renderBulkReminderStep(){
+  const total = reminderDueQueue.length;
+  const openBtn = document.getElementById('bulkReminderOpenBtn');
+  if (bulkReminderIndex >= total){
+    document.getElementById('bulkReminderProgress').textContent = `All done — ${total} of ${total} sent or skipped.`;
+    document.getElementById('bulkReminderName').textContent = 'Nothing left in the queue';
+    document.getElementById('bulkReminderAmount').textContent = '';
+    openBtn.disabled = true;
+    document.querySelector('#bulkReminderModal-bg .btn-ghost').disabled = true;
+    return;
+  }
+  const c = reminderDueQueue[bulkReminderIndex];
+  document.getElementById('bulkReminderProgress').textContent = `${bulkReminderIndex+1} of ${total}`;
+  document.getElementById('bulkReminderName').textContent = c.name;
+  document.getElementById('bulkReminderAmount').textContent = `Due ${fmt(c.amount)} — ${c.monthLabel}`;
+  openBtn.disabled = false;
+  document.querySelector('#bulkReminderModal-bg .btn-ghost').disabled = false;
+}
+
+function bulkReminderOpenAndNext(){
+  const c = reminderDueQueue[bulkReminderIndex];
+  if (c) window.open(waLink(c.phone, buildReminderMessageFor(c.name, c.amount, c.monthLabel)), '_blank');
+  bulkReminderIndex++;
+  renderBulkReminderStep();
+}
+
+function bulkReminderSkip(){
+  bulkReminderIndex++;
+  renderBulkReminderStep();
 }
 
 function nextMonthStr(monthVal){
@@ -933,6 +1081,7 @@ async function loadDashboard(){
     </span></div>`).join('') || '<p class="hint">No outstanding dues.</p>';
 
   loadVerificationsBadge();
+  loadTicketsBadge();
 }
 
 let reminderTemplateText = 'Hi {name}, a friendly reminder that your SVCN bill for {month} is due. Please clear it today — if you need a bit more time, just let us know beforehand. Thank you!';
@@ -1344,6 +1493,91 @@ async function rejectVerification(id){
   loadVerifications();
 }
 
+// ---- Tickets / complaints ----
+async function loadTickets(){
+  const filter = document.getElementById('ticketStatusFilter').value;
+  let query = db.from('tickets').select('*, customers!inner(name, customer_code, admin_id)').eq('customers.admin_id', currentAdmin.id).order('created_at', { ascending:false });
+  if (filter === 'open') query = query.eq('status','open');
+  else if (filter === 'in_progress') query = query.eq('status','in_progress');
+  else if (filter === 'resolved') query = query.eq('status','resolved');
+  else if (filter === 'open_and_progress') query = query.in('status', ['open','in_progress']);
+
+  const { data, error } = await query;
+  const setupHint = document.getElementById('ticketSetupHint');
+  if (error){ setupHint.style.display='block'; document.getElementById('ticketRows').innerHTML = ''; return; }
+  setupHint.style.display='none';
+
+  document.getElementById('ticketRows').innerHTML = (data||[]).map(t => {
+    const statusLabel = { open:'Open', in_progress:'In progress', resolved:'Resolved' }[t.status] || t.status;
+    const statusClass = { open:'open', in_progress:'in-progress', resolved:'resolved' }[t.status] || 'open';
+    let actions = '';
+    if (t.status === 'open'){
+      actions = `<button class="btn btn-ghost btn-sm" onclick="setTicketStatus('${t.id}','in_progress')">Start</button> <button class="btn btn-primary btn-sm" onclick="openResolveTicketModal('${t.id}','${(t.description||'').replace(/'/g,"\\'").replace(/\n/g,' ')}')">Resolve</button>`;
+    } else if (t.status === 'in_progress'){
+      actions = `<button class="btn btn-primary btn-sm" onclick="openResolveTicketModal('${t.id}','${(t.description||'').replace(/'/g,"\\'").replace(/\n/g,' ')}')">Resolve</button>`;
+    } else {
+      actions = `<button class="btn btn-ghost btn-sm" onclick="setTicketStatus('${t.id}','open')">Reopen</button>`;
+    }
+    return `<tr>
+      <td class="muted">${new Date(t.created_at).toLocaleDateString()}</td>
+      <td>${t.customers?.name||''} <span class="hint">(${t.customers?.customer_code||''})</span></td>
+      <td class="muted" style="max-width:280px;">${(t.description||'').slice(0,120)}${(t.description||'').length>120?'…':''}${t.resolution_note ? `<br><span class="hint">Resolved: ${t.resolution_note}</span>` : ''}</td>
+      <td><span class="pill ${statusClass}">${statusLabel}</span></td>
+      <td style="text-align:right;white-space:nowrap;">${actions}</td>
+    </tr>`;
+  }).join('') || '<tr><td class="hint" colspan="5">No tickets match this filter.</td></tr>';
+
+  loadTicketsBadge();
+}
+
+async function loadTicketsBadge(){
+  const { data, error } = await db.from('tickets').select('id, customers!inner(admin_id)').eq('customers.admin_id', currentAdmin.id).in('status', ['open','in_progress']);
+  const dot = document.getElementById('ticketDot');
+  const metricEl = document.getElementById('mTickets');
+  if (error){ dot.classList.remove('show'); if (metricEl) metricEl.textContent = '—'; return; }
+  dot.classList.toggle('show', (data||[]).length > 0);
+  if (metricEl) metricEl.textContent = (data||[]).length;
+}
+
+function openNewTicketModal(){
+  const sel = document.getElementById('tk_customer');
+  sel.innerHTML = customersCache.map(c => `<option value="${c.id}">${c.name} (${c.customer_code})</option>`).join('');
+  document.getElementById('tk_desc').value = '';
+  openModal('ticketModal');
+}
+
+async function submitTicket(){
+  const customerId = document.getElementById('tk_customer').value;
+  const description = document.getElementById('tk_desc').value.trim();
+  if (!customerId || !description){ alert('Pick a customer and describe the issue first.'); return; }
+  const { error } = await db.from('tickets').insert({ customer_id: customerId, description, status: 'open' });
+  if (error){ alert(error.message); return; }
+  closeModal('ticketModal');
+  loadTickets();
+}
+
+async function setTicketStatus(id, status){
+  const { error } = await db.from('tickets').update({ status }).eq('id', id);
+  if (error){ alert(error.message); return; }
+  loadTickets();
+}
+
+function openResolveTicketModal(id, issuePreview){
+  document.getElementById('rt_id').value = id;
+  document.getElementById('rt_issue_preview').textContent = issuePreview;
+  document.getElementById('rt_note').value = '';
+  openModal('resolveTicketModal');
+}
+
+async function submitResolveTicket(){
+  const id = document.getElementById('rt_id').value;
+  const note = document.getElementById('rt_note').value.trim();
+  const { error } = await db.from('tickets').update({ status:'resolved', resolution_note: note || null, resolved_at: new Date().toISOString() }).eq('id', id);
+  if (error){ alert(error.message); return; }
+  closeModal('resolveTicketModal');
+  loadTickets();
+}
+
 function exportCustomersExcel(){
   const rows = customersCache.map(c => ({
     'Customer ID': c.customer_code, 'Name': c.name, 'Package': c.package_type,
@@ -1612,6 +1846,138 @@ async function resetDueCalculations(){
 
   alert(`Reset complete. Cleared manual overrides on ${(customers||[]).length} customer(s) and removed ${adjDeleted} adjustment note(s). A backup from just before the reset was downloaded to your device.`);
   loadCustomers(); loadDashboard();
+}
+
+// ---- Recurring expenses ----
+async function loadRecurringExpenses(){
+  const { data, error } = await db.from('recurring_expenses').select('*').eq('admin_id', currentAdmin.id).order('created_at', { ascending:true });
+  const setupHint = document.getElementById('recurringSetupHint');
+  if (error){ setupHint.style.display='block'; document.getElementById('recurringExpenseRows').innerHTML = ''; return; }
+  setupHint.style.display='none';
+  document.getElementById('recurringExpenseRows').innerHTML = (data||[]).map(r => `<div class="due-row">
+    <span>${r.description} <span class="hint">(${r.category||'—'})</span>${r.active===false ? ' <span class="pill due">Paused</span>' : ''}</span>
+    <span style="display:flex;align-items:center;gap:10px;">
+      <span style="font-weight:600;">${fmt(r.amount)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="toggleRecurringExpense('${r.id}', ${r.active===false})">${r.active===false ? 'Resume' : 'Pause'}</button>
+      <button class="row-remove" title="Delete template" onclick="deleteRecurringExpense('${r.id}')">&times;</button>
+    </span></div>`).join('') || '<p class="hint">No recurring expense templates yet.</p>';
+}
+
+async function submitRecurringExpense(){
+  const description = document.getElementById('re_desc').value.trim();
+  const category = document.getElementById('re_cat').value.trim();
+  const amount = Number(document.getElementById('re_amount').value||0);
+  if (!description || !amount){ alert('Add a description and amount first.'); return; }
+  const { error } = await db.from('recurring_expenses').insert({ description, category, amount, active: true, admin_id: currentAdmin.id });
+  if (error){ alert(error.message); return; }
+  document.getElementById('re_desc').value = ''; document.getElementById('re_cat').value = ''; document.getElementById('re_amount').value = '';
+  loadRecurringExpenses();
+}
+
+async function toggleRecurringExpense(id, makeActive){
+  const { error } = await db.from('recurring_expenses').update({ active: makeActive }).eq('id', id);
+  if (error){ alert(error.message); return; }
+  loadRecurringExpenses();
+}
+
+async function deleteRecurringExpense(id){
+  if (!confirm('Delete this recurring expense template? This does not remove any expense rows already added from it.')) return;
+  const { error } = await db.from('recurring_expenses').delete().eq('id', id);
+  if (error){ alert(error.message); return; }
+  loadRecurringExpenses();
+}
+
+// Inserts one real `expenses` row per active recurring template, dated today — but
+// skips any template whose description+category already appears in this month's
+// expenses, so clicking this twice in the same month doesn't double up.
+async function applyRecurringExpenses(){
+  const { data: templates, error } = await db.from('recurring_expenses').select('*').eq('admin_id', currentAdmin.id).eq('active', true);
+  if (error){ alert(error.message); return; }
+  if (!templates || !templates.length){ alert('No active recurring expense templates to add.'); return; }
+
+  const monthStart = new Date(); monthStart.setDate(1);
+  const { data: existing } = await db.from('expenses').select('description,category').eq('admin_id', currentAdmin.id).gte('spent_on', monthStart.toISOString().slice(0,10));
+  const existingKeys = new Set((existing||[]).map(e => `${e.description}|${e.category||''}`));
+
+  const toInsert = templates
+    .filter(t => !existingKeys.has(`${t.description}|${t.category||''}`))
+    .map(t => ({ description: t.description, category: t.category, amount: t.amount, spent_on: new Date().toISOString().slice(0,10), admin_id: currentAdmin.id }));
+
+  if (!toInsert.length){ alert('All active recurring expenses are already added for this month.'); return; }
+
+  const { error: insErr } = await db.from('expenses').insert(toInsert);
+  if (insErr){ alert(insErr.message); return; }
+  alert(`Added ${toInsert.length} recurring expense(s) for this month.`);
+  loadDashboard();
+}
+
+// ---- Monthly P&L PDF ----
+async function exportMonthlyPnL(){
+  const monthStart = new Date(); monthStart.setDate(1);
+  const monthStartStr = monthStart.toISOString().slice(0,10);
+  const monthLabel = monthStart.toLocaleString('en', { month:'long', year:'numeric' });
+
+  const { data: payments } = await db.from('payments').select('amount, customers!inner(admin_id)').eq('customers.admin_id', currentAdmin.id).gte('billing_month', monthStartStr).neq('method','backfill');
+  const collected = (payments||[]).reduce((s,p)=>s+Number(p.amount),0);
+
+  const { data: expenses } = await db.from('expenses').select('*').eq('admin_id', currentAdmin.id).gte('spent_on', monthStartStr);
+  const totalExpenses = (expenses||[]).reduce((s,e)=>s+Number(e.amount),0);
+  const byCategory = {};
+  (expenses||[]).forEach(e => { const cat = e.category || 'Uncategorized'; byCategory[cat] = (byCategory[cat]||0) + Number(e.amount); });
+
+  const { data: activeForBw } = await db.from('customers').select('id,customer_code').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: netRowsForBw } = await db.from('network_status').select('customer_id,antaranga_customer_code,bill_amount');
+  const netByIdBw = new Map(), netByCodeBw = new Map();
+  (netRowsForBw||[]).forEach(n => { if (n.customer_id) netByIdBw.set(n.customer_id, n); if (n.antaranga_customer_code) netByCodeBw.set(n.antaranga_customer_code, n); });
+  let bandwidthCost = 0;
+  (activeForBw||[]).forEach(c => {
+    const net = netByIdBw.get(c.id) || netByCodeBw.get(c.customer_code);
+    if (net && net.bill_amount != null) bandwidthCost += Number(net.bill_amount);
+  });
+
+  const { data: dues } = await db.from('customer_dues').select('dues').eq('admin_id', currentAdmin.id).gt('dues', 0);
+  const totalDues = (dues||[]).reduce((s,d)=>s+Number(d.dues),0);
+  const actualProfit = collected - totalExpenses - bandwidthCost;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = 56;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(28,91,176);
+  doc.text('SVCN — Monthly P&L', 40, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(107,118,134);
+  doc.text(monthLabel, 40, y+18);
+  doc.text(`Generated ${new Date().toLocaleString()}`, pageW-40, y+18, { align:'right' });
+  y += 44;
+  doc.setDrawColor(231,235,241); doc.line(40, y, pageW-40, y); y += 28;
+
+  function row(label, value, opts={}){
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    doc.setFontSize(opts.bold ? 13 : 12);
+    doc.setTextColor(...(opts.color || [21,26,35]));
+    doc.text(label, 40, y);
+    doc.text(value, pageW-40, y, { align:'right' });
+    y += opts.bold ? 26 : 22;
+  }
+
+  row('Collected (real payments this month)', fmt(collected));
+  row('Expenses (total)', '− ' + fmt(totalExpenses), { color:[224,80,63] });
+  Object.entries(byCategory).forEach(([cat, amt]) => {
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(154,164,178);
+    doc.text(`   ${cat}`, 52, y); doc.text(fmt(amt), pageW-40, y, { align:'right' }); y += 17;
+  });
+  y += 6;
+  row('Bandwidth cost (Antaranga)', '− ' + fmt(bandwidthCost), { color:[224,80,63] });
+  doc.setDrawColor(231,235,241); doc.line(40, y-8, pageW-40, y-8); y += 6;
+  row('Actual profit', fmt(actualProfit), { bold:true, color: actualProfit>=0 ? [31,157,99] : [224,80,63] });
+  y += 14;
+  row('Dues outstanding (not yet collected)', fmt(totalDues), { color:[224,80,63] });
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(154,164,178);
+  doc.text('Generated from the SVCN ERP. Bandwidth cost reflects the current Antaranga sync snapshot, not a historical monthly figure.', 40, 780);
+
+  doc.save(`svcn-pnl-${monthStart.toISOString().slice(0,7)}.pdf`);
 }
 
 function toggleAi(){ document.getElementById('aiPanel').classList.toggle('open'); }
