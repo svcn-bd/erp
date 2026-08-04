@@ -11,14 +11,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#f2f6fc; --card:#ffffff; --blue:#2f7de1; --blue-soft:#eaf2fd; --blue-deep:#1c5bb0; --blue-pale:#dceafd;
-    --text-hi:#151a23; --text-mid:#6b7686; --text-lo:#9aa4b2; --border:#e7ebf1;
-    --red:#e0503f; --red-soft:#fbeae7; --green:#1f9d63; --green-soft:#e7f7ef; --amber:#e2963a; --amber-soft:#fdf1e2;
-    --purple:#7c5ce0; --purple-soft:#efeafd;
+    --bg:#0a0e27; --bg-end:#131a3d; --card:#141a35; --card-2:#1a2147;
+    --blue:#2f7de1; --blue-deep:#1c5bb0; --blue-text:#7db4ff; --blue-soft:rgba(47,125,225,.16); --blue-pale:rgba(47,125,225,.28);
+    --text-hi:#eef2fb; --text-mid:#9aa8cc; --text-lo:#5c6a94; --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+    --red:#ff6b5b; --red-soft:rgba(255,107,91,.16); --green:#28c76f; --green-soft:rgba(40,199,111,.16);
+    --amber:#f0ac4f; --amber-soft:rgba(240,172,79,.16); --purple:#9b82f0; --purple-soft:rgba(155,130,240,.16);
+    --teal:#2dd4c4;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-hi);-webkit-font-smoothing:antialiased;}
-  .hero-band{height:150px;background:linear-gradient(120deg,#e7f1fd,#f2f6fc 60%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;}
+  .hero-band{height:220px;background:radial-gradient(ellipse 900px 300px at 20% -10%, rgba(47,125,225,.35), transparent 60%),radial-gradient(ellipse 700px 260px at 90% -20%, rgba(40,199,111,.22), transparent 55%),linear-gradient(160deg,var(--bg),var(--bg-end) 70%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;overflow:hidden;}
   .wrap{max-width:1160px;margin:0 auto;padding:28px 16px 60px;position:relative;z-index:1;}
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
   .brand{display:flex;align-items:center;gap:12px;}
@@ -28,13 +30,18 @@
   .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;margin:0;}
   .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.05em;text-transform:uppercase;margin:0;}
   .topbar-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .status-strip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-mid);margin:-8px 0 20px;padding-left:2px;}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 0 0 rgba(40,199,111,.6);animation:statusPulse 2s ease-in-out infinite;}
+  @keyframes statusPulse{0%{box-shadow:0 0 0 0 rgba(40,199,111,.5);}70%{box-shadow:0 0 0 7px rgba(40,199,111,0);}100%{box-shadow:0 0 0 0 rgba(40,199,111,0);}}
   .btn{border:none;font-weight:600;font-size:13px;padding:10px 16px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:transform .15s ease, box-shadow .15s ease, background-color .15s ease;white-space:nowrap;}
   .btn:hover{transform:translateY(-1px);}
   .btn:active{transform:translateY(0);}
   .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-deep));color:#fff;box-shadow:0 6px 16px rgba(47,125,225,.28);}
   .btn-primary:hover{box-shadow:0 10px 22px rgba(47,125,225,.36);}
-  .btn-ghost{background:var(--blue-soft);color:var(--blue-deep);}
+  .btn-ghost{background:var(--blue-soft);color:var(--blue-text);}
   .btn-ghost:hover{background:var(--blue-pale);}
+  .btn-teal{background:linear-gradient(135deg,#17c2ac,#12a894);color:#fff;box-shadow:0 6px 16px rgba(18,168,148,.28);}
+  .btn-teal:hover{box-shadow:0 10px 22px rgba(18,168,148,.36);}
   .btn-amber{background:var(--amber-soft);color:var(--amber);}
   .btn-amber:hover{background:#fbe4c2;}
   .btn-sm{padding:7px 11px;font-size:12px;border-radius:8px;}
@@ -42,13 +49,13 @@
   .tabs{display:flex;gap:6px;margin-bottom:22px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .tabs::-webkit-scrollbar{display:none;}
   .tab{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-mid);transition:background-color .15s ease, color .15s ease;white-space:nowrap;flex-shrink:0;position:relative;}
-  .tab:hover{background:rgba(47,125,225,.07);color:var(--blue-deep);}
-  .tab.active{background:var(--card);color:var(--blue-deep);border:1px solid var(--border);box-shadow:0 2px 8px rgba(21,26,35,.05);}
+  .tab:hover{background:rgba(47,125,225,.07);color:var(--blue-text);}
+  .tab.active{background:var(--card);color:var(--blue-text);border:1px solid var(--border);box-shadow:0 2px 8px rgba(21,26,35,.05);}
   .tab .tab-dot{position:absolute;top:4px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;}
   .tab .tab-dot.show{display:block;}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:22px;}
   .metric{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;transition:transform .15s ease, box-shadow .15s ease;position:relative;overflow:hidden;}
-  .metric:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(21,26,35,.08);}
+  .metric:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(47,125,225,.18);border-color:var(--border-strong);}
   .metric::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--blue);opacity:.55;}
   .metric.due::before{background:var(--red);}
   .metric.ok::before{background:var(--green);}
@@ -56,13 +63,13 @@
   .metric .value{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:600;margin:0;}
   .metric.due .value{color:var(--red);} .metric.ok .value{color:var(--green);}
   .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-bottom:18px;transition:box-shadow .15s ease;}
-  .panel:hover{box-shadow:0 8px 22px rgba(21,26,35,.06);}
+  .panel:hover{box-shadow:0 10px 26px rgba(0,0,0,.35);border-color:var(--border-strong);}
   .panel h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:0 0 14px;color:var(--text-hi);}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   table{width:100%;border-collapse:collapse;font-size:13px;min-width:420px;}
   th{text-align:left;color:var(--text-lo);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:0 8px 10px 0;}
   td{padding:11px 8px 11px 0;border-top:1px solid var(--border);}
-  td.muted{color:var(--text-mid);} td.amt{text-align:right;font-weight:600;color:var(--blue-deep);}
+  td.muted{color:var(--text-mid);} td.amt{text-align:right;font-weight:600;color:var(--blue-text);}
   tbody tr{transition:background-color .12s ease;}
   tbody tr:hover{background:rgba(47,125,225,.04);}
   input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;background:#fff;transition:border-color .15s ease, box-shadow .15s ease;}
@@ -71,24 +78,30 @@
   .field{margin-bottom:13px;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;}
-  .modal-bg{position:fixed;inset:0;background:rgba(15,20,30,.4);display:none;align-items:center;justify-content:center;z-index:30;padding:16px;}
+  .modal-bg{position:fixed;inset:0;background:rgba(4,6,18,.6);display:none;align-items:center;justify-content:center;z-index:30;padding:16px;}
   .modal-bg.open{display:flex;animation:fadeIn .15s ease;}
   @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
   @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}
   .modal{background:#fff;border-radius:18px;padding:22px;width:380px;max-width:100%;max-height:88vh;overflow:auto;animation:popIn .18s ease;position:relative;}
+  .modal, #aiPanel, .min-chip{
+    --text-hi:#151a23; --text-mid:#6b7686; --text-lo:#9aa4b2; --border:#e7ebf1; --border-strong:#dbe1ea; --card:#ffffff; --blue-text:#1c5bb0;
+    color:var(--text-hi);
+  }
   .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
   .modal-head h3{margin:0;}
   .modal-head-actions{display:flex;gap:4px;}
-  .modal-icon-btn{width:26px;height:26px;border-radius:7px;border:none;background:var(--blue-soft);color:var(--blue-deep);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .15s ease;flex-shrink:0;}
+  .modal-icon-btn{width:26px;height:26px;border-radius:7px;border:none;background:var(--blue-soft);color:var(--blue-text);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .15s ease;flex-shrink:0;}
   .modal-icon-btn:hover{background:var(--blue-pale);}
   .modal-icon-btn.close-x{background:var(--red-soft);color:var(--red);}
   .modal-icon-btn.close-x:hover{background:#f6d9d3;}
   .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
   #receiptCanvas,#receiptCanvas2{display:none;}
+  .receipt-preview-wrap{display:flex;justify-content:center;margin:14px 0 6px;}
+  .receipt-preview-img{width:100%;max-width:340px;border-radius:14px;box-shadow:0 10px 28px rgba(10,14,39,.35);-webkit-touch-callout:default;}
   .receipt-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
   .wa-btn{width:30px;height:30px;border-radius:8px;background:var(--blue-soft);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s ease, background-color .15s ease;flex-shrink:0;}
   .wa-btn:hover{transform:scale(1.08);background:var(--blue-pale);}
-  .wa-btn svg{width:14px;height:14px;stroke:var(--blue-deep);fill:none;stroke-width:2;}
+  .wa-btn svg{width:14px;height:14px;stroke:var(--blue-text);fill:none;stroke-width:2;}
   .rc-btn{width:30px;height:30px;border-radius:8px;background:var(--purple-soft);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s ease, background-color .15s ease;flex-shrink:0;}
   .rc-btn:hover{transform:scale(1.08);}
   .rc-btn svg{width:14px;height:14px;stroke:var(--purple);fill:none;stroke-width:2;}
@@ -96,7 +109,7 @@
   .row-remove:hover{background:var(--red-soft);color:var(--red);}
   .row-edit{width:26px;height:26px;border-radius:7px;border:none;background:transparent;color:var(--text-lo);cursor:pointer;transition:background-color .15s ease, color .15s ease;display:inline-flex;align-items:center;justify-content:center;}
   .row-edit svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;}
-  .row-edit:hover{background:var(--blue-soft);color:var(--blue-deep);}
+  .row-edit:hover{background:var(--blue-soft);color:var(--blue-text);}
   .pill{font-size:11px;padding:4px 11px;border-radius:20px;font-weight:600;white-space:nowrap;}
   .pill.paid{background:var(--green-soft);color:var(--green);}
   .pill.due{background:var(--red-soft);color:var(--red);}
@@ -109,7 +122,7 @@
   .antaranga-row:first-child{border-top:none;}
   .antaranga-row span:first-child{color:var(--text-mid);}
   .antaranga-row span:last-child{text-align:right;font-weight:500;}
-  .tab[data-tab="customers"].active{color:var(--blue-deep);}
+  .tab[data-tab="customers"].active{color:var(--blue-text);}
   .tab[data-tab="reminders"].active{color:var(--red);}
   .tab[data-tab="transactions"].active{color:var(--amber);}
   .tab[data-tab="money"].active{color:var(--green);}
@@ -124,14 +137,14 @@
   #aiPanel.open{display:flex;animation:popIn .18s ease;}
   #aiMessages{flex:1;overflow-y:auto;padding:14px;font-size:13px;}
   .ai-msg{margin-bottom:10px;padding:9px 11px;border-radius:10px;max-width:88%;}
-  .ai-msg.user{background:var(--blue-soft);color:var(--blue-deep);margin-left:auto;}
+  .ai-msg.user{background:var(--blue-soft);color:var(--blue-text);margin-left:auto;}
   .ai-msg.bot{background:var(--bg);}
   #aiInputRow{display:flex;gap:6px;padding:10px;border-top:1px solid var(--border);}
   #aiInputRow input{flex:1;}
 
   /* Minimized modal chips */
   #minimizedBar{position:fixed;bottom:20px;left:20px;display:flex;flex-direction:column;gap:8px;z-index:25;}
-  .min-chip{background:#fff;border:1px solid var(--border);box-shadow:0 8px 20px rgba(21,26,35,.14);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;animation:popIn .18s ease;font-size:13px;font-weight:600;color:var(--blue-deep);}
+  .min-chip{background:#fff;border:1px solid var(--border);box-shadow:0 8px 20px rgba(21,26,35,.14);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;animation:popIn .18s ease;font-size:13px;font-weight:600;color:var(--blue-text);}
   .min-chip:hover{box-shadow:0 10px 24px rgba(21,26,35,.2);}
   .min-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0;animation:pulseDot 1.4s ease-in-out infinite;}
   @keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:.35;}}
@@ -184,6 +197,11 @@
     </div>
   </div>
 
+  <div class="status-strip" id="statusStrip">
+    <span class="status-dot"></span>
+    <span id="statusStripText">Loading network status…</span>
+  </div>
+
   <div class="tabs">
     <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
     <div class="tab" data-tab="customers" onclick="switchTab('customers')">Customers</div>
@@ -201,7 +219,10 @@
       <div class="metric ok"><p class="label">Active customers</p><p class="value" id="mCustomers">0</p></div>
       <div class="metric"><p class="label">Expenses — this month</p><p class="value" id="mExpenses">৳0</p></div>
       <div class="metric due"><p class="label">Offline / can't connect</p><p class="value" id="mOffline">0</p></div>
+      <div class="metric"><p class="label">Bandwidth cost — this month</p><p class="value" id="mBandwidth">৳0</p><p class="hint" id="mBandwidthNote" style="margin:4px 0 0;"></p></div>
+      <div class="metric ok"><p class="label">Actual profit — this month</p><p class="value" id="mProfit">৳0</p></div>
     </div>
+    <p class="hint" style="margin:-14px 0 22px;">Actual profit = Collected − Expenses − Bandwidth cost (what Antaranga charges you per connection).</p>
 
     <div class="grid2">
       <div class="panel">
@@ -236,7 +257,7 @@
         <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importCustomersExcel(event)">
       </div>
       <div class="table-wrap"><table>
-        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th>Status</th><th>Network</th><th>Expiry</th><th></th></tr>
+        <tr><th>ID</th><th>Name</th><th>Package</th><th>Phone</th><th style="text-align:right">Bill</th><th style="text-align:right">BW cost</th><th>Status</th><th>Network</th><th>Expiry</th><th></th></tr>
         <tbody id="customerRows"></tbody>
       </table></div>
     </div>
@@ -314,7 +335,7 @@
       <button class="btn btn-primary" onclick="saveMoneyAllocation()">Save allocation</button>
     </div>
     <div class="panel">
-      <h3>This month's split (based on ৳ collected)</h3>
+      <h3>This month's split (based on actual profit, after expenses &amp; bandwidth cost)</h3>
       <div id="m_breakdown"></div>
     </div>
   </div>
@@ -325,6 +346,7 @@
       <div class="chips-row" style="display:flex;gap:12px;flex-wrap:wrap;">
         <div class="field" style="flex:1;min-width:160px;margin:0;"><label>Last synced</label><p id="syncLastRun" style="font-weight:600;margin:4px 0 0;">—</p></div>
         <div class="field" style="flex:1;min-width:160px;margin:0;"><label>Customers linked</label><p id="syncMatchedCount" style="font-weight:600;margin:4px 0 0;">—</p></div>
+        <div class="field" style="flex:1;min-width:160px;margin:0;"><label>Avg. margin (matched customers)</label><p id="syncAvgMargin" style="font-weight:600;margin:4px 0 0;">—</p></div>
       </div>
       <p class="hint" id="syncStaleWarning" style="display:none;color:var(--red);"></p>
       <p class="hint">This updates whenever <code>sync.js</code> runs on your machine. A single run doesn't repeat on its own — either run <code>node sync.js --loop</code> and leave that window open, or schedule it (e.g. Windows Task Scheduler) to run every 15–30 minutes.</p>
@@ -348,6 +370,12 @@
       <h3>Backup</h3>
       <p class="hint" style="margin-top:0;">Export every customer, payment, and expense as a single JSON file you can store elsewhere.</p>
       <button class="btn btn-ghost" onclick="exportBackup()">Download full backup (JSON)</button>
+    </div>
+    <div class="panel" style="border-color:var(--red-soft);">
+      <h3 style="color:var(--red);">Danger zone — reset due calculations</h3>
+      <p class="hint" style="margin-top:0;">If manual paid/due overrides and adjustment notes have piled up and dues no longer look right, this clears them back to a clean slate: every customer's <strong>manual paid/due override is removed</strong> and all <strong>adjustment notes are deleted</strong>, so what's owed goes back to being calculated purely from real recorded payments.</p>
+      <p class="hint" style="margin-top:0;"><strong>This does not touch any payment records</strong> — nothing you've actually collected is deleted or changed.</p>
+      <button class="btn" style="background:var(--red-soft);color:var(--red);" onclick="resetDueCalculations()">Reset all due calculations</button>
     </div>
   </div>
 </div>
@@ -393,6 +421,10 @@
   <div class="field"><label>Phone</label><input id="ec_phone" placeholder="e.g. 01712345678"></div>
   <div class="field"><label>IP address</label><input id="ec_ip"></div>
   <div class="field"><label>Address</label><input id="ec_address"></div>
+  <div class="field">
+    <label>Current due</label>
+    <p id="ec_current_due" style="margin:0;font-weight:700;font-size:15px;"></p>
+  </div>
   <div class="field">
     <label>Payment status override</label>
     <select id="ec_manual_status">
@@ -542,13 +574,19 @@ function renderExpiryCell(net){
 // Full read-only detail shown in the edit-customer modal — every field the Antaranga
 // sync pulled in for this customer. If they were never found in Antaranga at all
 // (added manually here, code mismatch, etc.), this just says so plainly.
-function renderAntarangaDetail(net){
+// `net.bill_amount` is what Antaranga charges YOU (the reseller) for that connection's
+// bandwidth — a cost, not the customer's own bill — so it's labelled and used as such,
+// and "Margin" below shows what's actually left once that cost is subtracted.
+function renderAntarangaDetail(net, customer){
   if (!net) return 'Not found in Antaranga — this customer isn\'t linked to a matching record there.';
+  const bwCost = net.bill_amount != null ? Number(net.bill_amount) : null;
+  const margin = (bwCost != null && customer) ? Number(customer.monthly_bill||0) - bwCost : null;
   const rows = [
     ['Status', renderNetworkPill(net)],
     ['Expiry', renderExpiryCell(net)],
     ['Package (Antaranga)', net.package_name || '—'],
-    ['Bill amount (Antaranga)', net.bill_amount != null ? fmt(net.bill_amount) : '—'],
+    ['Bandwidth cost (what Antaranga charges you)', bwCost != null ? fmt(bwCost) : '—'],
+    ['Margin (your bill − bandwidth cost)', margin != null ? `<span style="color:${margin>=0?'var(--green)':'var(--red)'};font-weight:700;">${fmt(margin)}</span>` : '—'],
     ['Mobile (Antaranga)', net.mobile || '—'],
     ['Address (Antaranga)', net.address || '—'],
     ['Bill cycle (day of month)', net.bill_cycle || '—'],
@@ -559,6 +597,18 @@ function renderAntarangaDetail(net){
     ['Last synced', net.last_synced_at ? new Date(net.last_synced_at).toLocaleString() : '—']
   ];
   return rows.map(([k,v]) => `<div class="antaranga-row"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+// Sums Antaranga's bill_amount (bandwidth cost to you) across every active customer
+// that's actually matched to an Antaranga record. Customers with no match contribute
+// nothing here — there's no cost figure for them to pull from.
+function computeBandwidthCost(customers){
+  let total = 0, matchedCount = 0;
+  (customers||[]).forEach(c => {
+    const net = findNetworkStatus(c);
+    if (net && net.bill_amount != null){ total += Number(net.bill_amount); matchedCount++; }
+  });
+  return { total, matchedCount };
 }
 
 function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
@@ -664,24 +714,56 @@ function renderCustomerRows(){
     <td class="muted">${c.customer_code}</td><td>${c.name}</td>
     <td class="muted">${c.package_type==='wifi_dish'?'Wifi + Dish':'Wifi'}</td>
     <td class="muted">${c.phone||''}</td><td class="amt">${fmt(c.monthly_bill)}</td>
+    <td class="muted" style="text-align:right;">${net && net.bill_amount != null ? fmt(net.bill_amount) : '—'}</td>
     <td>${statusCell}</td>
     <td>${renderNetworkPill(net)}</td>
     <td class="muted">${renderExpiryCell(net)}</td>
     <td style="text-align:right;white-space:nowrap;">
+      ${info.manual_status !== 'paid'
+        ? `<button class="row-edit" title="Mark this month paid" onclick="quickSetManualStatus('${c.id}','paid','${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg></button>`
+        : `<button class="row-edit" title="Clear manual override" onclick="quickSetManualStatus('${c.id}',null,'${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>`}
       <button class="row-edit" title="Edit customer" onclick='openEditCustomer(${JSON.stringify(c)})'><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       <button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button>
     </td></tr>`;
   }).join('');
 }
 
+// One-click toggle for the manual paid/due override — no need to open the edit modal
+// just to clear a due. Passing null clears the override back to automatic (computed
+// from real payments).
+async function quickSetManualStatus(customerId, status, name){
+  const label = status === 'paid' ? `Mark ${name} as paid this month?` : `Clear the manual override for ${name} and go back to automatic calculation?`;
+  if (!confirm(label)) return;
+  const { error } = await db.from('customers').update({ manual_status: status }).eq('id', customerId).eq('admin_id', currentAdmin.id);
+  if (error) { alert(error.message); return; }
+  loadCustomers(); loadDashboard();
+}
+
 function updateOfflineMetric(customers){
-  let offline = 0;
+  let offline = 0, linked = 0;
   (customers||[]).forEach(c => {
     const net = findNetworkStatus(c);
-    if (net && net.online_status && net.online_status !== 'online') offline++;
+    if (net){ linked++; if (net.online_status && net.online_status !== 'online') offline++; }
   });
   const el = document.getElementById('mOffline');
   if (el) el.textContent = offline;
+  updateStatusStrip(customers?.length || 0, offline, linked);
+}
+
+function updateStatusStrip(total, offline, linked){
+  const dot = document.querySelector('.status-dot');
+  const text = document.getElementById('statusStripText');
+  if (!text) return;
+  if (offline > 0){
+    dot.style.background = 'var(--red)';
+    text.textContent = `${total} active customer${total===1?'':'s'} · ${offline} offline or unreachable right now`;
+  } else if (linked > 0){
+    dot.style.background = 'var(--green)';
+    text.textContent = `${total} active customer${total===1?'':'s'} · everyone linked to Antaranga is online`;
+  } else {
+    dot.style.background = 'var(--text-lo)';
+    text.textContent = `${total} active customer${total===1?'':'s'} · Antaranga sync not linked yet`;
+  }
 }
 
 function openEditCustomer(c){
@@ -694,7 +776,11 @@ function openEditCustomer(c){
   document.getElementById('ec_ip').value = c.ip_address || '';
   document.getElementById('ec_address').value = c.address || '';
   document.getElementById('ec_manual_status').value = c.manual_status || '';
-  document.getElementById('ec_antaranga_content').innerHTML = renderAntarangaDetail(findNetworkStatus(c));
+  const duesInfo = customerDuesMap.get(c.id) || { dues: 0, manual_status: null };
+  const dueEl = document.getElementById('ec_current_due');
+  dueEl.textContent = duesInfo.dues > 0 ? fmt(duesInfo.dues) : 'Paid up';
+  dueEl.style.color = duesInfo.dues > 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('ec_antaranga_content').innerHTML = renderAntarangaDetail(findNetworkStatus(c), c);
   loadDueAdjustmentHistory(c.id);
   openModal('editCustomerModal');
 }
@@ -812,6 +898,28 @@ async function loadDashboard(){
   const totalExpenses = (expenses||[]).reduce((s,e)=>s+Number(e.amount),0);
   document.getElementById('mExpenses').textContent = fmt(totalExpenses);
 
+  // Bandwidth cost — what Antaranga charges you per connection (network_status.bill_amount),
+  // summed across every active customer that's actually matched to an Antaranga record.
+  // Fetched fresh here (rather than reusing the Customers-tab cache) so this works
+  // correctly regardless of which tab loaded first.
+  const { data: activeForBw } = await db.from('customers').select('id,customer_code,monthly_bill').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: netRowsForBw } = await db.from('network_status').select('customer_id,antaranga_customer_code,bill_amount');
+  const netByIdBw = new Map(), netByCodeBw = new Map();
+  (netRowsForBw||[]).forEach(n => { if (n.customer_id) netByIdBw.set(n.customer_id, n); if (n.antaranga_customer_code) netByCodeBw.set(n.antaranga_customer_code, n); });
+  let bandwidthCost = 0, bwMatched = 0;
+  (activeForBw||[]).forEach(c => {
+    const net = netByIdBw.get(c.id) || netByCodeBw.get(c.customer_code);
+    if (net && net.bill_amount != null){ bandwidthCost += Number(net.bill_amount); bwMatched++; }
+  });
+  document.getElementById('mBandwidth').textContent = fmt(bandwidthCost);
+  document.getElementById('mBandwidthNote').textContent = `Across ${bwMatched} of ${(activeForBw||[]).length} customers matched to Antaranga`;
+
+  const actualProfit = collected - totalExpenses - bandwidthCost;
+  const profitEl = document.getElementById('mProfit');
+  profitEl.textContent = fmt(actualProfit);
+  profitEl.parentElement.classList.toggle('due', actualProfit < 0);
+  profitEl.parentElement.classList.toggle('ok', actualProfit >= 0);
+
   const { data: dues } = await db.from('customer_dues').select('*').eq('admin_id', currentAdmin.id).gt('dues', 0);
   const totalDues = (dues||[]).reduce((s,d)=>s+Number(d.dues),0);
   document.getElementById('mDues').textContent = fmt(totalDues);
@@ -863,6 +971,51 @@ function waLink(phone, text){
   return `https://wa.me/${clean}?text=${encodeURIComponent(text)}`;
 }
 
+// Builds the preview + save/share UI for a freshly-drawn receipt canvas.
+// Canvas elements can't be long-press-saved on iOS Safari, and the `download`
+// attribute on <a> is unreliable there too — so this always shows a real <img>
+// (which iOS *can* save via press-and-hold → "Save to Photos"), and additionally
+// offers the Web Share API where supported (iOS 15+, most modern browsers),
+// which opens the native share sheet with a proper "Save Image" option.
+function renderReceiptOutput(canvasId, containerId, receiptNo, waHref){
+  const canvas = document.getElementById(canvasId);
+  const container = document.getElementById(containerId);
+  const dataUrl = canvas.toDataURL('image/png');
+
+  container.innerHTML = `
+    <div class="receipt-preview-wrap">
+      <img src="${dataUrl}" alt="Receipt preview" class="receipt-preview-img">
+    </div>
+    <p class="hint" style="text-align:center;">On iPhone: press and hold the image above, then tap "Save to Photos".</p>
+    <div class="receipt-actions">
+      ${waHref ? `<a class="btn btn-primary" href="${waHref}" target="_blank">Open WhatsApp draft</a>` : ''}
+      <button class="btn btn-teal" id="shareReceiptBtn_${canvasId}">Share / Save</button>
+      <a class="btn btn-ghost" id="downloadPng_${canvasId}">PNG</a>
+      <a class="btn btn-ghost" id="downloadJpg_${canvasId}">JPG</a>
+    </div>`;
+
+  document.getElementById(`downloadPng_${canvasId}`).onclick = () => {
+    const a = document.createElement('a'); a.href = dataUrl; a.download = receiptNo + '.png'; a.click();
+  };
+  document.getElementById(`downloadJpg_${canvasId}`).onclick = () => {
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/jpeg', 0.92); a.download = receiptNo + '.jpg'; a.click();
+  };
+
+  const shareBtn = document.getElementById(`shareReceiptBtn_${canvasId}`);
+  if (navigator.share && navigator.canShare){
+    canvas.toBlob(async (blob) => {
+      const file = new File([blob], receiptNo + '.png', { type: 'image/png' });
+      if (!navigator.canShare({ files: [file] })){ shareBtn.style.display = 'none'; return; }
+      shareBtn.onclick = async () => {
+        try { await navigator.share({ files: [file], title: 'Receipt', text: 'Payment receipt' }); }
+        catch(e){ /* user cancelled the share sheet — nothing to do */ }
+      };
+    }, 'image/png');
+  } else {
+    shareBtn.style.display = 'none';
+  }
+}
+
 async function submitPayment(){
   const sel = document.getElementById('p_customer');
   const opt = sel.selectedOptions[0];
@@ -885,21 +1038,7 @@ async function submitPayment(){
     .replace('{paid_through}', paidThrough);
 
   drawReceipt('receiptCanvas', { name: opt.dataset.name, code: opt.dataset.code, month: monthLabel, amount, method, paidThrough, receiptNo });
-
-  document.getElementById('receiptPreview').innerHTML = `
-    <div class="receipt-actions">
-      <a class="btn btn-primary" href="${waLink(opt.dataset.phone, msg)}" target="_blank">Open WhatsApp draft</a>
-      <a class="btn btn-ghost" id="downloadReceiptPng">PNG</a>
-      <a class="btn btn-ghost" id="downloadReceiptJpg">JPG</a>
-    </div>`;
-  document.getElementById('downloadReceiptPng').onclick = () => {
-    const canvas = document.getElementById('receiptCanvas');
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = receiptNo + '.png'; a.click();
-  };
-  document.getElementById('downloadReceiptJpg').onclick = () => {
-    const canvas = document.getElementById('receiptCanvas');
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/jpeg', 0.92); a.download = receiptNo + '.jpg'; a.click();
-  };
+  renderReceiptOutput('receiptCanvas', 'receiptPreview', receiptNo, waLink(opt.dataset.phone, msg));
 
   loadDashboard(); loadCustomers();
 }
@@ -911,19 +1050,8 @@ function viewReceipt(p){
   const phone = p.customers?.phone || '';
   const monthLabel = new Date(p.billing_month).toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
   drawReceipt('receiptCanvas2', { name, code, month: monthLabel, amount: p.amount, method: p.method, paidThrough: p.paid_through, receiptNo: p.receipt_no });
-  const canvas = document.getElementById('receiptCanvas2');
-  document.getElementById('receiptModalPreview').innerHTML = `
-    <div class="receipt-actions">
-      ${phone ? `<a class="btn btn-primary" href="${waLink(phone, 'Hi '+name+', here is a copy of your receipt for '+monthLabel+'.')}" target="_blank">Open WhatsApp draft</a>` : ''}
-      <a class="btn btn-ghost" id="downloadReceiptPng2">PNG</a>
-      <a class="btn btn-ghost" id="downloadReceiptJpg2">JPG</a>
-    </div>`;
-  document.getElementById('downloadReceiptPng2').onclick = () => {
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = (p.receipt_no||'receipt') + '.png'; a.click();
-  };
-  document.getElementById('downloadReceiptJpg2').onclick = () => {
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/jpeg', 0.92); a.download = (p.receipt_no||'receipt') + '.jpg'; a.click();
-  };
+  const waHref = phone ? waLink(phone, 'Hi '+name+', here is a copy of your receipt for '+monthLabel+'.') : null;
+  renderReceiptOutput('receiptCanvas2', 'receiptModalPreview', p.receipt_no || 'receipt', waHref);
   openModal('receiptModal');
 }
 
@@ -1301,9 +1429,15 @@ async function loadTransactions(){
     type: 'bar',
     data: { labels, datasets: [
       { label:'Collected', data:collectedByMonth, backgroundColor:'#2f7de1', borderRadius:6 },
-      { label:'Expenses', data:expensesByMonth, backgroundColor:'#e0503f', borderRadius:6 }
+      { label:'Expenses', data:expensesByMonth, backgroundColor:'#ff6b5b', borderRadius:6 }
     ]},
-    options: { responsive:true, plugins:{ legend:{ position:'top', labels:{ boxWidth:10, font:{ size:11 } } } }, scales:{ y:{ grid:{ color:'#e7ebf1' } }, x:{ grid:{ display:false } } } }
+    options: { responsive:true,
+      plugins:{ legend:{ position:'top', labels:{ boxWidth:10, font:{ size:11 }, color:'#9aa8cc' } } },
+      scales:{
+        y:{ grid:{ color:'rgba(255,255,255,.08)' }, ticks:{ color:'#9aa8cc' } },
+        x:{ grid:{ display:false }, ticks:{ color:'#9aa8cc' } }
+      }
+    }
   });
 }
 
@@ -1341,15 +1475,37 @@ async function loadMoneyAllocation(){
 
 async function renderMoneyBreakdown(alloc){
   const monthStart = new Date(); monthStart.setDate(1);
-  const { data: payments } = await db.from('payments').select('amount, customers!inner(admin_id)').eq('customers.admin_id', currentAdmin.id).gte('billing_month', monthStart.toISOString().slice(0,10)).neq('method','backfill');
+  const monthStartStr = monthStart.toISOString().slice(0,10);
+
+  const { data: payments } = await db.from('payments').select('amount, customers!inner(admin_id)').eq('customers.admin_id', currentAdmin.id).gte('billing_month', monthStartStr).neq('method','backfill');
   const collected = (payments||[]).reduce((s,p)=>s+Number(p.amount),0);
+
+  const { data: expenses } = await db.from('expenses').select('amount').eq('admin_id', currentAdmin.id).gte('spent_on', monthStartStr);
+  const totalExpenses = (expenses||[]).reduce((s,e)=>s+Number(e.amount),0);
+
+  const { data: activeForBw } = await db.from('customers').select('id,customer_code').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: netRowsForBw } = await db.from('network_status').select('customer_id,antaranga_customer_code,bill_amount');
+  const netByIdBw = new Map(), netByCodeBw = new Map();
+  (netRowsForBw||[]).forEach(n => { if (n.customer_id) netByIdBw.set(n.customer_id, n); if (n.antaranga_customer_code) netByCodeBw.set(n.antaranga_customer_code, n); });
+  let bandwidthCost = 0;
+  (activeForBw||[]).forEach(c => {
+    const net = netByIdBw.get(c.id) || netByCodeBw.get(c.customer_code);
+    if (net && net.bill_amount != null) bandwidthCost += Number(net.bill_amount);
+  });
+
+  const actualProfit = Math.max(0, collected - totalExpenses - bandwidthCost);
+
   const rows = [
     ['Loan repayment', alloc.loan_repayment_pct], ['Reinvestment', alloc.reinvestment_pct],
     ['Marketing', alloc.marketing_pct], ['Personal savings', alloc.personal_savings_pct],
     ['Personal spending', alloc.personal_spending_pct]
   ];
-  document.getElementById('m_breakdown').innerHTML = rows.map(([label,pct])=>`<div class="due-row">
-    <span>${label} (${pct}%)</span><span style="font-weight:600;">${fmt(collected*pct/100)}</span></div>`).join('');
+  const working = `<div class="due-row"><span>Collected</span><span style="font-weight:600;">${fmt(collected)}</span></div>
+    <div class="due-row"><span>− Expenses</span><span style="font-weight:600;color:var(--red);">${fmt(totalExpenses)}</span></div>
+    <div class="due-row"><span>− Bandwidth cost</span><span style="font-weight:600;color:var(--red);">${fmt(bandwidthCost)}</span></div>
+    <div class="due-row"><span><strong>= Actual profit (split below)</strong></span><span style="font-weight:700;color:var(--green);">${fmt(actualProfit)}</span></div>`;
+  document.getElementById('m_breakdown').innerHTML = working + rows.map(([label,pct])=>`<div class="due-row">
+    <span>${label} (${pct}%)</span><span style="font-weight:600;">${fmt(actualProfit*pct/100)}</span></div>`).join('');
 }
 
 async function saveMoneyAllocation(){
@@ -1379,14 +1535,23 @@ async function loadSyncStatus(){
   const runEl = document.getElementById('syncLastRun');
   const matchedEl = document.getElementById('syncMatchedCount');
   const warnEl = document.getElementById('syncStaleWarning');
-  const { data: customers } = await db.from('customers').select('id,customer_code').eq('status','active').eq('admin_id', currentAdmin.id);
-  const { data: netRows, error } = await db.from('network_status').select('customer_id,antaranga_customer_code,last_synced_at').order('last_synced_at', { ascending:false });
-  if (error){ runEl.textContent = 'Not set up yet'; matchedEl.textContent = '—'; return; }
+  const marginEl = document.getElementById('syncAvgMargin');
+  const { data: customers } = await db.from('customers').select('id,customer_code,monthly_bill').eq('status','active').eq('admin_id', currentAdmin.id);
+  const { data: netRows, error } = await db.from('network_status').select('customer_id,antaranga_customer_code,last_synced_at,bill_amount').order('last_synced_at', { ascending:false });
+  if (error){ runEl.textContent = 'Not set up yet'; matchedEl.textContent = '—'; if (marginEl) marginEl.textContent = '—'; return; }
 
   const byId = new Map(), byCode = new Map();
   (netRows||[]).forEach(n => { if (n.customer_id) byId.set(n.customer_id, n); if (n.antaranga_customer_code) byCode.set(n.antaranga_customer_code, n); });
-  const matched = (customers||[]).filter(c => byId.has(c.id) || byCode.has(c.customer_code)).length;
-  matchedEl.textContent = `${matched} of ${(customers||[]).length}`;
+  const matchedCustomers = (customers||[]).filter(c => byId.has(c.id) || byCode.has(c.customer_code));
+  matchedEl.textContent = `${matchedCustomers.length} of ${(customers||[]).length}`;
+
+  if (marginEl){
+    const withBw = matchedCustomers.map(c => {
+      const net = byId.get(c.id) || byCode.get(c.customer_code);
+      return net && net.bill_amount != null ? Number(c.monthly_bill||0) - Number(net.bill_amount) : null;
+    }).filter(m => m !== null);
+    marginEl.textContent = withBw.length ? fmt(withBw.reduce((s,m)=>s+m,0) / withBw.length) + ' / customer' : '—';
+  }
 
   const latest = (netRows||[])[0]?.last_synced_at;
   if (!latest){ runEl.textContent = 'Never run yet'; return; }
@@ -1421,6 +1586,32 @@ async function exportBackup(){
   const blob = new Blob([JSON.stringify({ exported_at:new Date().toISOString(), customers, payments, expenses }, null, 2)], { type:'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `svcn-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  return { customers, payments, expenses };
+}
+
+// Clears manual paid/due overrides and deletes adjustment notes — the two layers
+// of "manual" data that can drift out of sync with real payments and cause the
+// same customer to show Paid in one place and Due in another. Real payment
+// records are never touched. Takes a downloadable backup first, just in case.
+async function resetDueCalculations(){
+  const typed = prompt('This clears every manual paid/due override and deletes all adjustment notes (payments are untouched). Type RESET to confirm:');
+  if (typed !== 'RESET') { if (typed !== null) alert('Not confirmed — nothing was changed.'); return; }
+
+  await exportBackup(); // safety net: a fresh backup lands in Downloads before anything changes
+
+  const { data: customers, error: custErr } = await db.from('customers').update({ manual_status: null }).eq('admin_id', currentAdmin.id).select('id');
+  if (custErr) { alert('Failed to clear manual overrides: ' + custErr.message); return; }
+
+  const customerIds = (customers||[]).map(c=>c.id);
+  let adjDeleted = 0;
+  if (customerIds.length){
+    const { error: adjErr, count } = await db.from('due_adjustments').delete({ count:'exact' }).in('customer_id', customerIds);
+    if (adjErr) { alert('Manual overrides were cleared, but deleting adjustment notes failed: ' + adjErr.message); return; }
+    adjDeleted = count || 0;
+  }
+
+  alert(`Reset complete. Cleared manual overrides on ${(customers||[]).length} customer(s) and removed ${adjDeleted} adjustment note(s). A backup from just before the reset was downloaded to your device.`);
+  loadCustomers(); loadDashboard();
 }
 
 function toggleAi(){ document.getElementById('aiPanel').classList.toggle('open'); }
