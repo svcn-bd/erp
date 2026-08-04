@@ -19,10 +19,10 @@ const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 // ====== CONFIG ======
-const WEBHOOK_SECRET = 'CHOOSE-A-LONG-RANDOM-SECRET-HERE';  // put this same value in your SMS-forwarding app
-const ADMIN_ID = 'YOUR-ADMIN-ID-HERE';                        // your row's id from the `admins` table
+const WEBHOOK_SECRET = '9a6d6399scaramouche';  // put this same value in your SMS-forwarding app
+const ADMIN_ID = '9a6d6399-641e-4030-8088-6844341282d1';                        // your row's id from the `admins` table
 const SUPABASE_URL = 'https://aitgxtutqgryyvqgxelh.supabase.co';
-const SUPABASE_KEY = 'YOUR_SUPABASE_SERVICE_ROLE_KEY';        // service role key required (bypasses RLS, runs server-side only)
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGd4dHV0cWdyeXl2cWd4ZWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MjkyMTIsImV4cCI6MjEwMDUwNTIxMn0.qoYbGI7KMSmEvEu3C_GWGTX6Ccz8qZUhmDWhR02g9yw';        // service role key required (bypasses RLS, runs server-side only)
 const PORT = 3300;
 // =====================
 
