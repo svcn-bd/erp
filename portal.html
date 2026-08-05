@@ -58,7 +58,6 @@
   .icon-chip.amber{background:var(--amber-soft);} .icon-chip.amber svg{stroke:var(--amber);}
   .icon-chip.purple{background:var(--purple-soft);} .icon-chip.purple svg{stroke:var(--purple);}
   .icon-chip.green{background:var(--green-soft);} .icon-chip.green svg{stroke:var(--green);}
-  .icon-chip.red{background:var(--red-soft);} .icon-chip.red svg{stroke:var(--red);}
   label{font-size:12px;color:var(--text-mid);display:block;margin:0 0 5px;font-weight:500;}
   .field{margin-bottom:13px;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -92,9 +91,6 @@
   .pill.paid{background:var(--green-soft);color:var(--green);}
   .pill.due{background:var(--red-soft);color:var(--red);}
   .pill.adjusted{background:var(--amber-soft);color:var(--amber);}
-  .pill.open{background:var(--red-soft);color:var(--red);}
-  .pill.in-progress{background:var(--amber-soft);color:var(--amber);}
-  .pill.resolved{background:var(--green-soft);color:var(--green);}
   .pill.partial{background:var(--amber-soft);color:var(--amber);}
   .pill.pending{background:var(--amber-soft);color:var(--amber);}
   .hint{font-size:12px;color:var(--text-lo);margin-top:10px;}
@@ -351,16 +347,6 @@
       <div class="tip-row"><span class="tip-num">3</span><p>Save our support number in your phone so a WhatsApp message reaches us instantly, any time.</p></div>
     </div>
 
-    <div class="panel stagger" style="animation-delay:.3s;">
-      <h3><span class="icon-chip red"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>Report a problem</h3>
-      <div id="ticketFormArea">
-        <div class="field"><label>What's going on?</label><textarea id="ticketDesc" rows="3" placeholder="e.g. No internet since this morning, router lights are red" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;"></textarea></div>
-        <button class="btn btn-amber" onclick="submitCustomerTicket()" id="submitTicketBtn">Report this</button>
-        <p class="hint" id="ticketSubmitHint" style="margin-top:8px;"></p>
-      </div>
-      <div id="myTicketsList" style="margin-top:14px;"></div>
-    </div>
-
     <div class="panel stagger" style="animation-delay:.32s;">
       <h3><span class="icon-chip green"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></span>Need help?</h3>
       <div class="btn-row" style="margin-bottom:10px;">
@@ -513,7 +499,6 @@ async function showPortal(){
   await renderMonthlyLedger();
   await loadAdjustmentNotes();
   await loadNetworkStatus();
-  await loadMyTickets();
   await checkPendingVerification();
   subscribeToVerification();
 }
