@@ -9,17 +9,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#f2f6fc; --card:#ffffff;
-    --blue:#2f7de1; --blue-soft:#eaf2fd; --blue-deep:#1c5bb0; --blue-pale:#dceafd;
-    --teal:#12a894; --teal-soft:#e2f7f4;
-    --amber:#e2963a; --amber-soft:#fdf1e2;
-    --purple:#7c5ce0; --purple-soft:#efeafd;
-    --text-hi:#151a23; --text-mid:#6b7686; --text-lo:#9aa4b2; --border:#e7ebf1;
-    --red:#e0503f; --red-soft:#fbeae7; --green:#1f9d63; --green-soft:#e7f7ef;
+    --bg:#0a0e27; --bg-end:#131a3d; --card:#141a35; --card-2:#1a2147;
+    --blue:#2f7de1; --blue-soft:rgba(47,125,225,.16); --blue-deep:#1c5bb0; --blue-pale:rgba(47,125,225,.28); --blue-text:#7db4ff;
+    --teal:#17c2ac; --teal-soft:rgba(23,194,172,.18);
+    --amber:#f0ac4f; --amber-soft:rgba(240,172,79,.16);
+    --purple:#9b82f0; --purple-soft:rgba(155,130,240,.18);
+    --text-hi:#eef2fb; --text-mid:#9aa8cc; --text-lo:#5c6a94; --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+    --red:#ff6b5b; --red-soft:rgba(255,107,91,.16); --green:#28c76f; --green-soft:rgba(40,199,111,.16);
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-hi);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;}
-  .hero-band{height:190px;background:linear-gradient(120deg,#dcebfd,#e2f7f4 55%,#f2f6fc 100%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;overflow:hidden;}
+  .hero-band{height:190px;background:radial-gradient(ellipse 900px 300px at 20% -10%, rgba(47,125,225,.32), transparent 60%),radial-gradient(ellipse 700px 260px at 90% -15%, rgba(23,194,172,.22), transparent 55%),linear-gradient(160deg,var(--bg),var(--bg-end) 70%);border-bottom:1px solid var(--border);position:absolute;top:0;left:0;right:0;z-index:0;overflow:hidden;}
   .bg-blob{position:fixed;border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;opacity:.35;display:none;}
   .bg-blob.b1{width:340px;height:340px;background:radial-gradient(circle,var(--blue-pale),transparent 70%);top:60px;left:-140px;animation:blobDrift 14s ease-in-out infinite;}
   .bg-blob.b2{width:300px;height:300px;background:radial-gradient(circle,var(--teal-soft),transparent 70%);bottom:80px;right:-120px;animation:blobDrift 16s ease-in-out infinite reverse;}
@@ -43,8 +43,8 @@
   .brand-mark .fallback{color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;}
   .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin:0;}
   .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.06em;text-transform:uppercase;margin:0;}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:16px;transition:box-shadow .18s ease, transform .18s ease;box-shadow:0 1px 2px rgba(21,26,35,.04);}
-  .panel:hover{box-shadow:0 14px 32px rgba(21,26,35,.09);}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:16px;transition:box-shadow .18s ease, transform .18s ease;box-shadow:0 1px 2px rgba(0,0,0,.2);}
+  .panel:hover{box-shadow:0 14px 32px rgba(0,0,0,.35);}
   .tip-row{display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border);}
   .tip-row:first-of-type{border-top:none;padding-top:2px;}
   .tip-row p{margin:0;font-size:13px;color:var(--text-mid);line-height:1.5;}
@@ -63,7 +63,7 @@
   .field{margin-bottom:13px;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .dues-note{background:var(--amber-soft);color:var(--amber);font-size:12.5px;padding:10px 12px;border-radius:10px;margin:12px 0;line-height:1.5;}
-  input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;transition:border-color .15s ease, box-shadow .15s ease;}
+  input{width:100%;padding:11px 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-2);color:var(--text-hi);transition:border-color .15s ease, box-shadow .15s ease;}
   input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.14);}
   .btn{border:none;font-weight:600;font-size:13px;padding:12px 18px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;transition:transform .15s ease, box-shadow .15s ease;text-decoration:none;}
   .btn:hover{transform:translateY(-1px);}
@@ -81,7 +81,7 @@
   .badge.paid{background:var(--green-soft);color:var(--green);}
   .badge.due{background:var(--red-soft);color:var(--red);}
   .chips-row{display:flex;gap:10px;flex-wrap:wrap;}
-  .chip{flex:1;min-width:110px;background:var(--bg);border-radius:12px;padding:12px 14px;}
+  .chip{flex:1;min-width:110px;background:var(--card-2);border-radius:12px;padding:12px 14px;}
   .chip .k{font-size:11px;color:var(--text-mid);margin:0 0 4px;}
   .chip .v{font-size:15px;font-weight:600;margin:0;font-family:'Space Grotesk',sans-serif;}
   .month-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);}
@@ -101,7 +101,7 @@
   #logoutBtn{background:none;border:none;color:var(--text-lo);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
   #configWarn{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;}
   .speed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
-  .speed-tile{background:var(--bg);border-radius:12px;padding:14px 10px;text-align:center;}
+  .speed-tile{background:var(--card-2);border-radius:12px;padding:14px 10px;text-align:center;}
   .speed-tile .sv{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin:0;}
   .speed-tile .su{font-size:10px;color:var(--text-lo);text-transform:uppercase;letter-spacing:.04em;margin:2px 0 0;}
   .speed-tile.active .sv{color:var(--teal);}
@@ -136,7 +136,7 @@
   @keyframes barBounce{0%,100%{transform:scaleY(.6);}50%{transform:scaleY(1);}}
   .tagline-row{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px 0 6px;color:var(--text-mid);font-size:12px;}
   .site-footer{margin-top:32px;text-align:center;padding:22px 14px 6px;}
-  .site-footer .big-line{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;line-height:1.35;background:linear-gradient(120deg,var(--blue-deep),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .site-footer .big-line{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;line-height:1.35;background:linear-gradient(120deg,var(--blue-text),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent;}
   .site-footer .sub-line{font-size:11px;color:var(--text-lo);margin-top:6px;letter-spacing:.04em;text-transform:uppercase;}
 
   /* ---------- Dynamic post-login page ---------- */
@@ -152,7 +152,7 @@
   /* ---------- Network / connection status (from Antaranga sync) ---------- */
   .badge.online{background:var(--green-soft);color:var(--green);}
   .badge.online::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulseDot 1.6s ease-in-out infinite;}
-  .badge.offline{background:#eef1f5;color:var(--text-mid);}
+  .badge.offline{background:var(--card-2);color:var(--text-mid);}
   .badge.cant-connect{background:var(--amber-soft);color:var(--amber);}
   .chip .note{font-size:11px;margin:3px 0 0;}
 
@@ -322,6 +322,7 @@
       </div>
       <button class="btn btn-teal" id="speedBtn" onclick="runSpeedTest()">Run speed test</button>
       <p class="hint">Uses a multi-connection test against a global edge network for a realistic reading of your current connection.</p>
+      <div id="speedHistoryList" style="margin-top:14px;"></div>
     </div>
 
     <div class="panel stagger" style="animation-delay:.26s;">
@@ -354,7 +355,7 @@
     <div class="panel stagger" style="animation-delay:.3s;">
       <h3><span class="icon-chip red"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>Report a problem</h3>
       <div id="ticketFormArea">
-        <div class="field"><label>What's going on?</label><textarea id="ticketDesc" rows="3" placeholder="e.g. No internet since this morning, router lights are red" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;"></textarea></div>
+        <div class="field"><label>What's going on?</label><textarea id="ticketDesc" rows="3" placeholder="e.g. No internet since this morning, router lights are red" style="width:100%;padding:11px 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-2);color:var(--text-hi);"></textarea></div>
         <button class="btn btn-amber" onclick="submitCustomerTicket()" id="submitTicketBtn">Report this</button>
         <p class="hint" id="ticketSubmitHint" style="margin-top:8px;"></p>
       </div>
@@ -439,11 +440,22 @@ async function login(){
 }
 
 function logout(){
+  stopLiveUpdates();
   currentCustomer = null;
   localStorage.removeItem('svcn_portal_code');
   document.getElementById('portalView').style.display = 'none';
   document.getElementById('loginView').style.display = '';
   document.getElementById('loginPass').value = '';
+}
+
+// Tears down both realtime channels and both polling timers — called on logout
+// so a stale customer's subscriptions don't keep running in the background
+// (relevant on shared devices where a different customer logs in next).
+function stopLiveUpdates(){
+  if (verifyChannel){ db.removeChannel(verifyChannel); verifyChannel = null; }
+  if (liveChannel){ db.removeChannel(liveChannel); liveChannel = null; }
+  if (verifyPollTimer){ clearInterval(verifyPollTimer); verifyPollTimer = null; }
+  if (liveRefreshTimer){ clearInterval(liveRefreshTimer); liveRefreshTimer = null; }
 }
 
 // Same paid/unpaid rule renderMonthlyLedger uses for a given month, applied to the
@@ -465,17 +477,40 @@ async function showPortal(){
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('portalView').style.display = '';
 
+  document.getElementById('custName').textContent = currentCustomer.name;
+  document.getElementById('custCode').textContent = currentCustomer.customer_code;
+  document.getElementById('custPackage').textContent = currentCustomer.package_type === 'wifi_dish' ? 'Wifi + Dish' : 'Wifi';
+  document.getElementById('custBill').textContent = fmt(currentCustomer.monthly_bill);
+  document.getElementById('refCodeHint').textContent = currentCustomer.customer_code;
+
+  await refreshDuesBadge();
+
+  const supportMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I need some help with my connection.`);
+  const billingMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I have a question about my bill/account.`);
+  document.getElementById('supportBtn').href = `https://wa.me/${SUPPORT_PHONE}?text=${supportMsg}`;
+  document.getElementById('billingBtn').href = `https://wa.me/${BILLING_PHONE}?text=${billingMsg}`;
+
+  await renderMonthlyLedger();
+  await loadAdjustmentNotes();
+  await loadNetworkStatus();
+  await loadMyTickets();
+  await loadSpeedHistory();
+  await checkPendingVerification();
+  subscribeToVerification();
+  subscribeLiveUpdates();
+  startLiveRefresh();
+}
+
+// Recomputes and repaints just the top status badge + its hints — split out of
+// showPortal() so realtime/poll handlers can refresh this cheaply without
+// re-running the whole page (animations, all panels, etc.) every few seconds.
+async function refreshDuesBadge(){
   const { data: dues } = await db.from('customer_dues').select('*').eq('id', currentCustomer.id).maybeSingle();
   currentDues = dues || { dues: 0 };
   let isPaid = !dues || dues.dues <= 0;
   if (currentCustomer.manual_status === 'paid') isPaid = true;
   if (currentCustomer.manual_status === 'unpaid') isPaid = false;
 
-  document.getElementById('custName').textContent = currentCustomer.name;
-  document.getElementById('custCode').textContent = currentCustomer.customer_code;
-  document.getElementById('custPackage').textContent = currentCustomer.package_type === 'wifi_dish' ? 'Wifi + Dish' : 'Wifi';
-  document.getElementById('custBill').textContent = fmt(currentCustomer.monthly_bill);
-  document.getElementById('refCodeHint').textContent = currentCustomer.customer_code;
   const badge = document.getElementById('statusBadge');
   // Show the real outstanding balance from the customer_dues view directly — no longer
   // floored up to the full monthly bill. That flooring was the bug: a customer whose
@@ -504,18 +539,6 @@ async function showPortal(){
   }
   document.getElementById('txnMonth').value = new Date().toISOString().slice(0,7);
   document.getElementById('txnAmount').value = currentDues.dues > 0 ? currentDues.dues : currentCustomer.monthly_bill;
-
-  const supportMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I need some help with my connection.`);
-  const billingMsg = encodeURIComponent(`Hi, I'm ${currentCustomer.name} (${currentCustomer.customer_code}), I have a question about my bill/account.`);
-  document.getElementById('supportBtn').href = `https://wa.me/${SUPPORT_PHONE}?text=${supportMsg}`;
-  document.getElementById('billingBtn').href = `https://wa.me/${BILLING_PHONE}?text=${billingMsg}`;
-
-  await renderMonthlyLedger();
-  await loadAdjustmentNotes();
-  await loadNetworkStatus();
-  await loadMyTickets();
-  await checkPendingVerification();
-  subscribeToVerification();
 }
 
 // ---- Connection status (populated by the Antaranga sync script into `network_status`) ----
@@ -871,6 +894,54 @@ function subscribeToVerification(){
   verifyPollTimer = setInterval(checkPendingVerification, 6000);
 }
 
+// Instant updates when the admin changes something in the ERP — a payment gets
+// recorded, a ticket gets resolved, a due-adjustment note gets added, Antaranga
+// sync updates connection status, or manual_status/bill gets changed on the
+// customer record itself. Each handler only repaints the small piece that
+// actually changed, not the whole page.
+// NOTE: like the verification channel above, this needs Realtime switched on
+// for these tables in Supabase (Database → Replication). startLiveRefresh()
+// below is the guaranteed fallback regardless of that setting.
+let liveChannel = null;
+function subscribeLiveUpdates(){
+  if (!currentCustomer) return;
+  if (liveChannel) db.removeChannel(liveChannel);
+  liveChannel = db.channel('live-' + currentCustomer.id)
+    .on('postgres_changes', { event:'*', schema:'public', table:'payments', filter:`customer_id=eq.${currentCustomer.id}` },
+      () => { renderMonthlyLedger(); refreshDuesBadge(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'tickets', filter:`customer_id=eq.${currentCustomer.id}` },
+      () => loadMyTickets())
+    .on('postgres_changes', { event:'*', schema:'public', table:'due_adjustments', filter:`customer_id=eq.${currentCustomer.id}` },
+      () => { loadAdjustmentNotes(); refreshDuesBadge(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'network_status', filter:`customer_id=eq.${currentCustomer.id}` },
+      () => loadNetworkStatus())
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'customers', filter:`id=eq.${currentCustomer.id}` },
+      payload => {
+        currentCustomer = { ...currentCustomer, ...payload.new };
+        document.getElementById('custBill').textContent = fmt(currentCustomer.monthly_bill);
+        document.getElementById('custPackage').textContent = currentCustomer.package_type === 'wifi_dish' ? 'Wifi + Dish' : 'Wifi';
+        refreshDuesBadge();
+      })
+    .subscribe();
+}
+
+// Quiet background refresh every 15s — works regardless of whether Realtime
+// replication is switched on in Supabase, so "live" is guaranteed either way.
+// No loading states or animations retrigger; it just silently repaints the
+// same small pieces the realtime handlers above do.
+let liveRefreshTimer = null;
+function startLiveRefresh(){
+  if (liveRefreshTimer) clearInterval(liveRefreshTimer);
+  liveRefreshTimer = setInterval(() => {
+    if (!currentCustomer || document.getElementById('portalView').style.display === 'none') return;
+    refreshDuesBadge();
+    renderMonthlyLedger();
+    loadAdjustmentNotes();
+    loadNetworkStatus();
+    loadMyTickets();
+  }, 15000);
+}
+
 // ---- Speed test: multi-connection download/upload against a public global edge test endpoint, plus a ping/latency probe ----
 async function pingTest(){
   const times = [];
@@ -926,11 +997,34 @@ async function runSpeedTest(){
     const up = await uploadTest();
     document.getElementById('valUp').textContent = up.toFixed(1);
     document.getElementById('tileUp').classList.remove('pulsing');
+
+    try {
+      await db.from('speed_tests').insert({ customer_id: currentCustomer.id, download_mbps: down, upload_mbps: up, ping_ms: ping });
+    } catch(saveErr){ console.error('Could not save speed test result:', saveErr); } // history just won't show this run
+    loadSpeedHistory();
   } catch(e){
     alert('Speed test failed — check your connection and try again.');
     ['tileDown','tileUp','tilePing'].forEach(id=>document.getElementById(id).classList.remove('pulsing'));
   }
   btn.disabled = false; btn.textContent = 'Run speed test again';
+}
+
+// Shows the last several speed tests this customer has run, so they (and support,
+// if they screenshot it) can see whether a slowdown is new or has been ongoing.
+async function loadSpeedHistory(){
+  const el = document.getElementById('speedHistoryList');
+  try {
+    const { data, error } = await db.from('speed_tests').select('*').eq('customer_id', currentCustomer.id).order('tested_at', { ascending:false }).limit(8);
+    if (error || !data || !data.length){ el.innerHTML = ''; return; }
+    el.innerHTML = `<p class="hint" style="margin:0 0 6px;">Recent tests</p>` + data.map(t => `<div class="month-row">
+        <p class="m" style="margin:0;">${new Date(t.tested_at).toLocaleString('en',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}</p>
+        <span style="display:flex;gap:12px;font-size:12px;color:var(--text-mid);">
+          <span><strong style="color:var(--text-hi);">${Number(t.download_mbps).toFixed(1)}</strong> down</span>
+          <span><strong style="color:var(--text-hi);">${Number(t.upload_mbps).toFixed(1)}</strong> up</span>
+          <span><strong style="color:var(--text-hi);">${Number(t.ping_ms).toFixed(0)}</strong> ms</span>
+        </span>
+      </div>`).join('');
+  } catch(e){ el.innerHTML = ''; }
 }
 
 spawnFloatDots();
