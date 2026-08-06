@@ -268,8 +268,10 @@
       </div>
       <div class="chips-row">
         <div class="chip"><p class="k">Package expiry</p><p class="v" id="networkExpiry">—</p><p class="note hint" id="networkExpiryNote"></p></div>
+        <div class="chip"><p class="k">Uptime (30 days)</p><p class="v" id="networkUptime">—</p></div>
         <div class="chip"><p class="k">Last checked</p><p class="v" id="networkSynced">—</p></div>
       </div>
+      <div id="networkOutageList" style="margin-top:12px;"></div>
     </div>
 
     <div class="panel stagger" style="animation-delay:.08s;">
@@ -356,6 +358,11 @@
       <h3><span class="icon-chip red"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>Report a problem</h3>
       <div id="ticketFormArea">
         <div class="field"><label>What's going on?</label><textarea id="ticketDesc" rows="3" placeholder="e.g. No internet since this morning, router lights are red" style="width:100%;padding:11px 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-2);color:var(--text-hi);"></textarea></div>
+        <div class="field">
+          <label>Add a photo (optional)</label>
+          <input type="file" id="ticketPhotoInput" accept="image/*" onchange="onTicketPhotoSelected(event)" style="padding:8px;">
+          <img id="ticketPhotoPreview" style="display:none;max-width:100%;border-radius:10px;margin-top:8px;max-height:200px;object-fit:cover;">
+        </div>
         <button class="btn btn-amber" onclick="submitCustomerTicket()" id="submitTicketBtn">Report this</button>
         <p class="hint" id="ticketSubmitHint" style="margin-top:8px;"></p>
       </div>
@@ -602,6 +609,65 @@ async function loadNetworkStatus(){
   }
 
   document.getElementById('networkSynced').textContent = row.last_synced_at ? timeAgo(row.last_synced_at) : '—';
+
+  await loadUptimeHistory(row.online_status);
+}
+
+// Computes uptime % and recent outages from network_status_events, which logs
+// only real status *changes* (not every sync cycle) — so this reconstructs an
+// accurate timeline instead of relying on a single current snapshot.
+function computeUptimeStats(events, currentStatus, periodDays){
+  const now = new Date();
+  const periodStart = new Date(now.getTime() - periodDays*86400000);
+  const sorted = [...events].sort((a,b)=>new Date(a.changed_at)-new Date(b.changed_at));
+
+  let cursorTime = periodStart;
+  let cursorStatus = sorted.length ? sorted[0].old_status : currentStatus;
+  let onlineMs = 0, downMs = 0, outages = [];
+  let currentOutageStart = null;
+
+  function addSpan(status, ms){ if (ms <= 0) return; if (status === 'online') onlineMs += ms; else downMs += ms; }
+
+  sorted.forEach(ev => {
+    const evTime = new Date(ev.changed_at);
+    addSpan(cursorStatus, evTime - cursorTime);
+    if (cursorStatus === 'online' && ev.new_status !== 'online') currentOutageStart = evTime;
+    if (cursorStatus !== 'online' && ev.new_status === 'online' && currentOutageStart){
+      outages.push({ start: currentOutageStart, end: evTime });
+      currentOutageStart = null;
+    }
+    cursorTime = evTime;
+    cursorStatus = ev.new_status;
+  });
+  addSpan(cursorStatus, now - cursorTime);
+  if (cursorStatus !== 'online' && currentOutageStart) outages.push({ start: currentOutageStart, end: null });
+
+  const totalMs = onlineMs + downMs;
+  return { uptimePct: totalMs > 0 ? (onlineMs/totalMs*100) : 100, outages: outages.reverse() };
+}
+
+async function loadUptimeHistory(currentStatus){
+  const uptimeEl = document.getElementById('networkUptime');
+  const listEl = document.getElementById('networkOutageList');
+  try {
+    const periodStart = new Date(Date.now() - 30*86400000).toISOString();
+    const { data, error } = await db.from('network_status_events').select('*').eq('customer_id', currentCustomer.id).gte('changed_at', periodStart).order('changed_at', { ascending:true });
+    if (error){ uptimeEl.textContent = '—'; listEl.innerHTML = ''; return; }
+    const stats = computeUptimeStats(data||[], currentStatus, 30);
+    uptimeEl.textContent = stats.uptimePct.toFixed(1) + '%';
+    uptimeEl.style.color = stats.uptimePct >= 99 ? 'var(--green)' : stats.uptimePct >= 95 ? 'var(--amber)' : 'var(--red)';
+
+    if (!stats.outages.length){ listEl.innerHTML = ''; return; }
+    listEl.innerHTML = `<p class="hint" style="margin:0 0 6px;">Recent outages</p>` + stats.outages.slice(0,5).map(o => {
+      const durMs = (o.end || new Date()) - o.start;
+      const durMin = Math.round(durMs/60000);
+      const durLabel = durMin < 60 ? `${durMin} min` : `${(durMin/60).toFixed(1)} hr`;
+      return `<div class="month-row">
+        <p class="m" style="margin:0;">${o.start.toLocaleString('en',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}</p>
+        <span style="font-size:12px;color:var(--text-mid);">${o.end ? durLabel : 'ongoing'}</span>
+      </div>`;
+    }).join('');
+  } catch(e){ uptimeEl.textContent = '—'; listEl.innerHTML = ''; }
 }
 
 // Use the raw 'YYYY-MM' slice of the stored date string directly — avoids a timezone
@@ -680,12 +746,46 @@ async function loadMyTickets(){
     if (!data || !data.length){ listEl.innerHTML = ''; return; }
     const statusLabel = { open:'Open', in_progress:'In progress', resolved:'Resolved' };
     const statusClass = { open:'open', in_progress:'in-progress', resolved:'resolved' };
-    listEl.innerHTML = data.map(t => `<div class="month-row">
-        <div><p class="m">${(t.description||'').slice(0,90)}${(t.description||'').length>90?'…':''}</p>
-          <p class="meth">${new Date(t.created_at).toLocaleDateString('en',{day:'numeric',month:'short',year:'numeric'})}${t.resolution_note ? ' · ' + t.resolution_note : ''}</p></div>
+    listEl.innerHTML = data.map(t => `<div class="month-row" style="align-items:flex-start;">
+        ${t.photo_url ? `<img src="${t.photo_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;margin-right:10px;flex-shrink:0;cursor:pointer;" onclick="window.open('${t.photo_url}','_blank')">` : ''}
+        <div style="flex:1;"><p class="m">${(t.description||'').slice(0,90)}${(t.description||'').length>90?'…':''}</p>
+          <p class="meth">${new Date(t.created_at).toLocaleDateString('en',{day:'numeric',month:'short',year:'numeric'})}${t.resolution_note ? ' · ' + t.resolution_note : ''}</p>
+          ${renderTicketSatisfactionRow(t)}
+        </div>
         <span class="pill ${statusClass[t.status]||'open'}">${statusLabel[t.status]||t.status}</span>
       </div>`).join('');
   } catch(e){ listEl.innerHTML = ''; }
+}
+
+// Shows a one-tap "Was this fixed?" prompt once a ticket is resolved and hasn't
+// been rated yet; shows the rating already given otherwise. Nothing shown for
+// open/in-progress tickets.
+function renderTicketSatisfactionRow(t){
+  if (t.status !== 'resolved') return '';
+  if (t.satisfaction === 'up') return `<p class="meth" style="color:var(--green);">You said: fixed 👍</p>`;
+  if (t.satisfaction === 'down') return `<p class="meth" style="color:var(--red);">You said: still an issue 👎</p>`;
+  return `<p class="meth" style="margin-top:4px;">Was this fixed?
+    <button onclick="rateTicket('${t.id}','up')" style="border:none;background:none;cursor:pointer;font-size:14px;padding:0 4px;">👍</button>
+    <button onclick="rateTicket('${t.id}','down')" style="border:none;background:none;cursor:pointer;font-size:14px;padding:0 4px;">👎</button></p>`;
+}
+
+async function rateTicket(id, value){
+  const { error } = await db.from('tickets').update({ satisfaction: value }).eq('id', id);
+  if (error){ console.error(error); return; }
+  loadMyTickets();
+}
+
+let selectedTicketPhoto = null;
+function onTicketPhotoSelected(event){
+  const file = event.target.files[0];
+  selectedTicketPhoto = file || null;
+  const preview = document.getElementById('ticketPhotoPreview');
+  if (file){
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = '';
+  } else {
+    preview.style.display = 'none';
+  }
 }
 
 async function submitCustomerTicket(){
@@ -695,15 +795,35 @@ async function submitCustomerTicket(){
   hint.style.color = '';
   if (!desc){ hint.textContent = 'Describe what\'s going on first.'; hint.style.color = 'var(--red)'; return; }
   btn.disabled = true; btn.textContent = 'Sending…';
-  const { error } = await db.from('tickets').insert({ customer_id: currentCustomer.id, description: desc, status: 'open' });
-  btn.disabled = false; btn.textContent = 'Report this';
+
+  const { data: inserted, error } = await db.from('tickets').insert({ customer_id: currentCustomer.id, description: desc, status: 'open' }).select().single();
   if (error){
+    btn.disabled = false; btn.textContent = 'Report this';
     hint.textContent = 'Could not send right now — please try again or message support below.';
     hint.style.color = 'var(--red)';
     console.error(error);
     return;
   }
+
+  // Photo is optional and uploaded second — if this fails, the ticket itself
+  // still went through, so we don't block on it, just note it quietly.
+  if (selectedTicketPhoto){
+    try {
+      const ext = selectedTicketPhoto.name.split('.').pop() || 'jpg';
+      const path = `${currentCustomer.id}/${inserted.id}.${ext}`;
+      const { error: upErr } = await db.storage.from('ticket-photos').upload(path, selectedTicketPhoto, { upsert: true });
+      if (!upErr){
+        const { data: pub } = db.storage.from('ticket-photos').getPublicUrl(path);
+        await db.from('tickets').update({ photo_url: pub.publicUrl }).eq('id', inserted.id);
+      }
+    } catch(photoErr){ console.error('Photo upload failed:', photoErr); }
+  }
+
+  btn.disabled = false; btn.textContent = 'Report this';
   document.getElementById('ticketDesc').value = '';
+  document.getElementById('ticketPhotoInput').value = '';
+  document.getElementById('ticketPhotoPreview').style.display = 'none';
+  selectedTicketPhoto = null;
   hint.textContent = 'Reported — we\'ll take a look and update the status here.';
   hint.style.color = 'var(--green)';
   loadMyTickets();
