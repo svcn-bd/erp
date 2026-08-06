@@ -300,8 +300,9 @@
           <option value="amount">Sort: Amount (high → low)</option>
         </select>
       </div>
+      <p class="hint" style="margin:0 0 12px;">Profit = payment amount − bandwidth cost at the time it was recorded. Older payments (before this was tracked) show "—".</p>
       <div class="table-wrap"><table>
-        <tr><th>Date</th><th>Customer</th><th>Month</th><th>Method</th><th style="text-align:right">Amount</th><th></th></tr>
+        <tr><th>Date</th><th>Customer</th><th>Month</th><th>Method</th><th style="text-align:right">Amount</th><th style="text-align:right">Profit</th><th></th></tr>
         <tbody id="allPayments"></tbody>
       </table></div>
     </div>
@@ -342,7 +343,7 @@
         </div>
       </div>
       <div class="table-wrap"><table>
-        <tr><th>Reported</th><th>Customer</th><th>Issue</th><th>Status</th><th></th></tr>
+        <tr><th>Reported</th><th>Customer</th><th>Photo</th><th>Issue</th><th>Status</th><th></th></tr>
         <tbody id="ticketRows"></tbody>
       </table></div>
       <p class="hint" id="ticketSetupHint" style="display:none;">This needs a <code>tickets</code> table in Supabase — see the setup note shared alongside this file.</p>
@@ -634,7 +635,7 @@
 // ====== CONFIG — replace with your Supabase project values ======
 const SUPABASE_URL = 'https://aitgxtutqgryyvqgxelh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGd4dHV0cWdyeXl2cWd4ZWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MjkyMTIsImV4cCI6MjEwMDUwNTIxMn0.qoYbGI7KMSmEvEu3C_GWGTX6Ccz8qZUhmDWhR02g9yw';
-const GROQ_API_KEY = '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'; // free at console.groq.com — leave as-is to keep the AI assistant disabled
+const GROQ_API_KEY = 'YOUR-GROQ-API-KEY'; // free at console.groq.com — leave as-is to keep the AI assistant disabled
 // ==================================================================
 
 let db = null;
@@ -706,6 +707,42 @@ function computeBandwidthCost(customers){
     if (net && net.bill_amount != null){ total += Number(net.bill_amount); matchedCount++; }
   });
   return { total, matchedCount };
+}
+
+// Reconstructs uptime % over a period from network_status_events (which logs only
+// real status *changes*, not every sync cycle) — same logic used in the portal, so
+// the number an admin sees here always matches what the customer sees on their side.
+function computeUptimeStats(events, currentStatus, periodDays){
+  const now = new Date();
+  const periodStart = new Date(now.getTime() - periodDays*86400000);
+  const sorted = [...events].sort((a,b)=>new Date(a.changed_at)-new Date(b.changed_at));
+  let cursorTime = periodStart;
+  let cursorStatus = sorted.length ? sorted[0].old_status : currentStatus;
+  let onlineMs = 0, downMs = 0;
+  function addSpan(status, ms){ if (ms <= 0) return; if (status === 'online') onlineMs += ms; else downMs += ms; }
+  sorted.forEach(ev => {
+    const evTime = new Date(ev.changed_at);
+    addSpan(cursorStatus, evTime - cursorTime);
+    cursorTime = evTime; cursorStatus = ev.new_status;
+  });
+  addSpan(cursorStatus, now - cursorTime);
+  const totalMs = onlineMs + downMs;
+  return { uptimePct: totalMs > 0 ? (onlineMs/totalMs*100) : 100 };
+}
+
+async function appendUptimeToAntarangaDetail(customerId){
+  const el = document.getElementById('ec_antaranga_content');
+  if (!el || el.textContent.includes('Not found in Antaranga')) return;
+  try {
+    const periodStart = new Date(Date.now() - 30*86400000).toISOString();
+    const { data, error } = await db.from('network_status_events').select('*').eq('customer_id', customerId).gte('changed_at', periodStart).order('changed_at', { ascending:true });
+    if (error) return;
+    const net = customersCache.find(c=>c.id===customerId);
+    const currentStatus = net ? (findNetworkStatus(net)?.online_status) : null;
+    const stats = computeUptimeStats(data||[], currentStatus, 30);
+    const color = stats.uptimePct >= 99 ? 'var(--green)' : stats.uptimePct >= 95 ? 'var(--amber)' : 'var(--red)';
+    el.insertAdjacentHTML('beforeend', `<div class="antaranga-row"><span>Uptime (30 days)</span><span style="color:${color};font-weight:700;">${stats.uptimePct.toFixed(1)}%</span></div>`);
+  } catch(e){ /* fail quietly */ }
 }
 
 function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
@@ -781,7 +818,11 @@ async function loadCustomers(){
   renderCustomerRows();
 
   const sel = document.getElementById('p_customer');
-  sel.innerHTML = data.map(c => `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}">${c.name} (${c.customer_code})</option>`).join('');
+  sel.innerHTML = data.map(c => {
+    const net = findNetworkStatus(c);
+    const bw = net && net.bill_amount != null ? net.bill_amount : '';
+    return `<option value="${c.id}" data-bill="${c.monthly_bill}" data-code="${c.customer_code}" data-phone="${c.phone||''}" data-name="${c.name}" data-bwcost="${bw}">${c.name} (${c.customer_code})</option>`;
+  }).join('');
   document.getElementById('mCustomers').textContent = data.length;
   onPaymentCustomerChange();
   updateOfflineMetric(data);
@@ -879,6 +920,7 @@ function openEditCustomer(c){
   dueEl.textContent = duesInfo.dues > 0 ? fmt(duesInfo.dues) : 'Paid up';
   dueEl.style.color = duesInfo.dues > 0 ? 'var(--red)' : 'var(--green)';
   document.getElementById('ec_antaranga_content').innerHTML = renderAntarangaDetail(findNetworkStatus(c), c);
+  appendUptimeToAntarangaDetail(c.id);
   loadDueAdjustmentHistory(c.id);
   openModal('editCustomerModal');
 }
@@ -1174,9 +1216,11 @@ async function submitPayment(){
   const month = document.getElementById('p_month').value + '-01';
   const paidThrough = document.getElementById('p_paidthrough').value;
   const receiptNo = 'RCPT' + Date.now();
+  const bwSnapshot = opt.dataset.bwcost !== '' ? Number(opt.dataset.bwcost) : null;
 
   const { error } = await db.from('payments').insert({
-    customer_id: opt.value, billing_month: month, amount, method, paid_through: paidThrough, receipt_no: receiptNo
+    customer_id: opt.value, billing_month: month, amount, method, paid_through: paidThrough, receipt_no: receiptNo,
+    bandwidth_cost_snapshot: bwSnapshot
   });
   if (error) { alert(error.message); return; }
 
@@ -1477,8 +1521,12 @@ async function approveVerification(id, customerId, billingMonth, amount){
   if (!confirm('Approve this and record the payment?')) return;
   const receiptNo = 'RCPT' + Date.now();
   const month = billingMonth && billingMonth!=='null' ? billingMonth : (new Date().toISOString().slice(0,7)+'-01');
+  const customer = customersCache.find(c => c.id === customerId);
+  const net = customer ? findNetworkStatus(customer) : null;
+  const bwSnapshot = net && net.bill_amount != null ? Number(net.bill_amount) : null;
   const { error: payErr } = await db.from('payments').insert({
-    customer_id: customerId, billing_month: month, amount, method: 'bkash', paid_through: new Date().toISOString().slice(0,10), receipt_no: receiptNo
+    customer_id: customerId, billing_month: month, amount, method: 'bkash', paid_through: new Date().toISOString().slice(0,10), receipt_no: receiptNo,
+    bandwidth_cost_snapshot: bwSnapshot
   });
   if (payErr){ alert(payErr.message); return; }
   const { error } = await db.from('payment_verifications').update({ status:'approved' }).eq('id', id);
@@ -1518,14 +1566,16 @@ async function loadTickets(){
     } else {
       actions = `<button class="btn btn-ghost btn-sm" onclick="setTicketStatus('${t.id}','open')">Reopen</button>`;
     }
+    const satisfactionTag = t.satisfaction === 'up' ? ' <span style="color:var(--green);">👍</span>' : t.satisfaction === 'down' ? ' <span style="color:var(--red);">👎</span>' : '';
     return `<tr>
       <td class="muted">${new Date(t.created_at).toLocaleDateString()}</td>
       <td>${t.customers?.name||''} <span class="hint">(${t.customers?.customer_code||''})</span></td>
+      <td>${t.photo_url ? `<img src="${t.photo_url}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;cursor:pointer;" onclick="window.open('${t.photo_url}','_blank')">` : ''}</td>
       <td class="muted" style="max-width:280px;">${(t.description||'').slice(0,120)}${(t.description||'').length>120?'…':''}${t.resolution_note ? `<br><span class="hint">Resolved: ${t.resolution_note}</span>` : ''}</td>
-      <td><span class="pill ${statusClass}">${statusLabel}</span></td>
+      <td><span class="pill ${statusClass}">${statusLabel}</span>${satisfactionTag}</td>
       <td style="text-align:right;white-space:nowrap;">${actions}</td>
     </tr>`;
-  }).join('') || '<tr><td class="hint" colspan="5">No tickets match this filter.</td></tr>';
+  }).join('') || '<tr><td class="hint" colspan="6">No tickets match this filter.</td></tr>';
 
   loadTicketsBadge();
 }
@@ -1687,13 +1737,18 @@ function renderPaymentRows(){
   } else if (sortMode === 'amount'){
     list.sort((a,b)=>Number(b.amount||0) - Number(a.amount||0));
   }
-  document.getElementById('allPayments').innerHTML = list.map(p=>`<tr>
+  document.getElementById('allPayments').innerHTML = list.map(p=>{
+    const hasSnapshot = p.method!=='backfill' && p.bandwidth_cost_snapshot != null;
+    const profit = hasSnapshot ? Number(p.amount) - Number(p.bandwidth_cost_snapshot) : null;
+    return `<tr>
     <td class="muted">${new Date(p.created_at).toLocaleDateString()}</td>
     <td>${p.customers?.name||''}</td>
     <td class="muted">${new Date(p.billing_month).toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'})}</td>
     <td class="muted">${p.method==='backfill' ? '<span class="pill adjusted">Adjusted</span>' : p.method}</td>
     <td class="amt">${p.method==='backfill' ? '—' : fmt(p.amount)}</td>
-    <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`).join('');
+    <td class="muted" style="text-align:right;">${profit != null ? `<span style="color:${profit>=0?'var(--green)':'var(--red)'};font-weight:600;">${fmt(profit)}</span>` : '—'}</td>
+    <td style="text-align:right;">${p.method==='backfill' ? '' : `<button class="rc-btn" title="View receipt" onclick='viewReceipt(${JSON.stringify(p)})'><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></button>`}</td></tr>`;
+  }).join('');
 }
 
 async function loadMoneyAllocation(){
