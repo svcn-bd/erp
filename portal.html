@@ -806,7 +806,10 @@ async function submitCustomerTicket(){
   }
 
   // Photo is optional and uploaded second — if this fails, the ticket itself
-  // still went through, so we don't block on it, just note it quietly.
+  // still went through, so we don't block on it, but we do tell the customer
+  // rather than failing silently (most likely cause: the ticket-photos storage
+  // bucket/policies haven't been set up yet in Supabase).
+  let photoFailed = false;
   if (selectedTicketPhoto){
     try {
       const ext = selectedTicketPhoto.name.split('.').pop() || 'jpg';
@@ -815,8 +818,8 @@ async function submitCustomerTicket(){
       if (!upErr){
         const { data: pub } = db.storage.from('ticket-photos').getPublicUrl(path);
         await db.from('tickets').update({ photo_url: pub.publicUrl }).eq('id', inserted.id);
-      }
-    } catch(photoErr){ console.error('Photo upload failed:', photoErr); }
+      } else { photoFailed = true; console.error('Photo upload failed:', upErr); }
+    } catch(photoErr){ photoFailed = true; console.error('Photo upload failed:', photoErr); }
   }
 
   btn.disabled = false; btn.textContent = 'Report this';
@@ -824,8 +827,13 @@ async function submitCustomerTicket(){
   document.getElementById('ticketPhotoInput').value = '';
   document.getElementById('ticketPhotoPreview').style.display = 'none';
   selectedTicketPhoto = null;
-  hint.textContent = 'Reported — we\'ll take a look and update the status here.';
-  hint.style.color = 'var(--green)';
+  if (photoFailed){
+    hint.textContent = 'Reported — but the photo couldn\'t attach. The issue itself was still logged.';
+    hint.style.color = 'var(--amber)';
+  } else {
+    hint.textContent = 'Reported — we\'ll take a look and update the status here.';
+    hint.style.color = 'var(--green)';
+  }
   loadMyTickets();
 }
 
