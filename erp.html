@@ -636,6 +636,8 @@
 const SUPABASE_URL = 'https://aitgxtutqgryyvqgxelh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGd4dHV0cWdyeXl2cWd4ZWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MjkyMTIsImV4cCI6MjEwMDUwNTIxMn0.qoYbGI7KMSmEvEu3C_GWGTX6Ccz8qZUhmDWhR02g9yw';
 const GROQ_API_KEY = 'YOUR-GROQ-API-KEY'; // free at console.groq.com — leave as-is to keep the AI assistant disabled
+const RECHARGE_SERVER_URL = 'http://127.0.0.1:3400/recharge'; // wherever antaranga-automation/server.js runs — Termux phone, home PC, etc.
+const RECHARGE_SECRET = 'CHOOSE-A-LONG-RANDOM-SECRET-HERE';   // must match WEBHOOK_SECRET in server.js
 // ==================================================================
 
 let db = null;
@@ -862,6 +864,7 @@ function renderCustomerRows(){
         ? `<button class="row-edit" title="Mark this month paid" onclick="quickSetManualStatus('${c.id}','paid','${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg></button>`
         : `<button class="row-edit" title="Clear manual override" onclick="quickSetManualStatus('${c.id}',null,'${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>`}
       <button class="row-edit" title="Edit customer" onclick='openEditCustomer(${JSON.stringify(c)})'><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="row-edit" title="Recharge via Antaranga" onclick="confirmRecharge('${c.customer_code}','${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
       <button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button>
     </td></tr>`;
   }).join('');
@@ -969,6 +972,22 @@ async function removeCustomer(id, name){
   const { error } = await db.from('customers').update({ status:'inactive' }).eq('id', id).eq('admin_id', currentAdmin.id);
   if (error) { alert(error.message); return; }
   loadCustomers(); loadDashboard();
+}
+
+async function confirmRecharge(customerCode, name){
+  if (!confirm(`Recharge ${name} (${customerCode}) on Antaranga? This spends real wallet balance on your Antaranga account.`)) return;
+  try {
+    const res = await fetch(RECHARGE_SERVER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': RECHARGE_SECRET },
+      body: JSON.stringify({ customer_code: customerCode })
+    });
+    const result = await res.json();
+    if (result.status === 'success') alert(`Recharged ${name} successfully.\n${result.detail || ''}`);
+    else alert(`Recharge did not complete: ${result.error || result.detail || 'unknown error'}`);
+  } catch (e) {
+    alert('Could not reach the recharge automation server — is it running? (' + e.message + ')');
+  }
 }
 
 function currentMonthStr(){ const n = new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
