@@ -591,6 +591,29 @@
   <p class="hint" style="margin-top:12px;">Each click opens that customer's pre-filled WhatsApp message in a new tab — you just hit send there, then come back and continue.</p>
 </div></div>
 
+<!-- Antaranga recharge — mirrors Antaranga's own two-step preview/confirm flow.
+     Needs `node antaranga-bridge.js` running locally; see the setup note. -->
+<div class="modal-bg" id="rechargeModal-bg"><div class="modal">
+  <div class="modal-head"><h3>Recharge on Antaranga</h3>
+    <div class="modal-head-actions">
+      <button class="modal-icon-btn close-x" title="Close" onclick="closeModal('rechargeModal')">&times;</button>
+    </div>
+  </div>
+  <input type="hidden" id="rc_customer_internal_id">
+  <input type="hidden" id="rc_customer_name">
+  <div class="field">
+    <label>Recharge for</label>
+    <select id="rc_months" onchange="loadRechargePreview()">
+      <option value="1">1 month</option>
+      <option value="2">2 months</option>
+    </select>
+  </div>
+  <div id="rc_preview_area" style="min-height:60px;"><p class="hint">Loading preview from Antaranga…</p></div>
+  <div id="rc_bridge_error" class="hint" style="display:none;color:var(--red);"></div>
+  <button class="btn btn-primary" id="rc_confirm_btn" style="width:100%;justify-content:center;margin-top:10px;" onclick="confirmRecharge()" disabled>Confirm recharge</button>
+  <p class="hint" style="margin-top:8px;">This executes for real on Antaranga's side the moment you click Confirm — same as clicking the green Recharge button there yourself.</p>
+</div></div>
+
 <!-- Bulk mark-months-paid modal -->
 <div class="modal-bg" id="bulkPaidModal-bg"><div class="modal">
   <div class="modal-head"><h3>Mark previous months as paid</h3>
@@ -636,8 +659,7 @@
 const SUPABASE_URL = 'https://aitgxtutqgryyvqgxelh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdGd4dHV0cWdyeXl2cWd4ZWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MjkyMTIsImV4cCI6MjEwMDUwNTIxMn0.qoYbGI7KMSmEvEu3C_GWGTX6Ccz8qZUhmDWhR02g9yw';
 const GROQ_API_KEY = 'YOUR-GROQ-API-KEY'; // free at console.groq.com — leave as-is to keep the AI assistant disabled
-const RECHARGE_SERVER_URL = 'http://127.0.0.1:3400/recharge'; // wherever antaranga-automation/server.js runs — Termux phone, home PC, etc.
-const RECHARGE_SECRET = 'CHOOSE-A-LONG-RANDOM-SECRET-HERE';   // must match WEBHOOK_SECRET in server.js
+const ANTARANGA_BRIDGE_URL = 'http://localhost:4747'; // run `node antaranga-bridge.js` on this computer for the Recharge button to work
 // ==================================================================
 
 let db = null;
@@ -745,6 +767,74 @@ async function appendUptimeToAntarangaDetail(customerId){
     const color = stats.uptimePct >= 99 ? 'var(--green)' : stats.uptimePct >= 95 ? 'var(--amber)' : 'var(--red)';
     el.insertAdjacentHTML('beforeend', `<div class="antaranga-row"><span>Uptime (30 days)</span><span style="color:${color};font-weight:700;">${stats.uptimePct.toFixed(1)}%</span></div>`);
   } catch(e){ /* fail quietly */ }
+}
+
+// ---- Antaranga recharge (via the local antaranga-bridge.js) ----
+// Mirrors Antaranga's own two-step flow: fetch a live preview (no side effects),
+// show it, and only execute on an explicit second click — this modal never
+// auto-confirms anything on its own.
+function openRechargeModal(customer, internalId){
+  document.getElementById('rc_customer_internal_id').value = internalId;
+  document.getElementById('rc_customer_name').value = customer.name;
+  document.getElementById('rc_months').value = '1';
+  document.getElementById('rc_confirm_btn').disabled = true;
+  document.getElementById('rc_bridge_error').style.display = 'none';
+  openModal('rechargeModal');
+  loadRechargePreview();
+}
+
+async function loadRechargePreview(){
+  const internalId = document.getElementById('rc_customer_internal_id').value;
+  const months = document.getElementById('rc_months').value;
+  const area = document.getElementById('rc_preview_area');
+  const errEl = document.getElementById('rc_bridge_error');
+  const confirmBtn = document.getElementById('rc_confirm_btn');
+  confirmBtn.disabled = true;
+  errEl.style.display = 'none';
+  area.innerHTML = '<p class="hint">Loading preview from Antaranga…</p>';
+
+  try {
+    const res = await fetch(`${ANTARANGA_BRIDGE_URL}/recharge/preview?customer_id=${encodeURIComponent(internalId)}&months=${encodeURIComponent(months)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Unknown error from the bridge.');
+    const f = data.fields;
+    area.innerHTML = Object.entries(f).map(([k,v]) => `<div class="antaranga-row"><span>${k}</span><span>${v}</span></div>`).join('');
+    confirmBtn.disabled = false;
+  } catch (e) {
+    area.innerHTML = '';
+    errEl.style.display = 'block';
+    errEl.textContent = `Could not reach the recharge bridge (${e.message}). Make sure "node antaranga-bridge.js" is running on this computer, then try again.`;
+  }
+}
+
+async function confirmRecharge(){
+  const internalId = document.getElementById('rc_customer_internal_id').value;
+  const name = document.getElementById('rc_customer_name').value;
+  const months = document.getElementById('rc_months').value;
+  if (!confirm(`Recharge ${name} for ${months} month(s) on Antaranga right now? This is real and cannot be undone from here.`)) return;
+
+  const btn = document.getElementById('rc_confirm_btn');
+  btn.disabled = true; btn.textContent = 'Recharging…';
+  try {
+    const res = await fetch(`${ANTARANGA_BRIDGE_URL}/recharge/confirm`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: internalId, months })
+    });
+    const data = await res.json();
+    btn.textContent = 'Confirm recharge';
+    if (!data.ok || data.status === false){
+      alert('Recharge failed: ' + (data.message || data.error || 'unknown error'));
+      btn.disabled = false;
+      return;
+    }
+    alert('Recharge successful: ' + (data.message || ''));
+    closeModal('rechargeModal');
+    loadCustomers(); // expiry_date will catch up on the next Antaranga sync cycle
+  } catch (e) {
+    btn.textContent = 'Confirm recharge';
+    btn.disabled = false;
+    alert(`Could not reach the recharge bridge (${e.message}). Make sure "node antaranga-bridge.js" is running.`);
+  }
 }
 
 function fmt(n){ return '৳' + Number(n||0).toLocaleString('en-BD'); }
@@ -860,11 +950,11 @@ function renderCustomerRows(){
     <td>${renderNetworkPill(net)}</td>
     <td class="muted">${renderExpiryCell(net)}</td>
     <td style="text-align:right;white-space:nowrap;">
+      ${net && net.antaranga_internal_id ? `<button class="row-edit" title="Recharge on Antaranga" onclick='openRechargeModal(${JSON.stringify(c)}, ${net.antaranga_internal_id})'><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>` : ''}
       ${info.manual_status !== 'paid'
         ? `<button class="row-edit" title="Mark this month paid" onclick="quickSetManualStatus('${c.id}','paid','${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg></button>`
         : `<button class="row-edit" title="Clear manual override" onclick="quickSetManualStatus('${c.id}',null,'${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>`}
       <button class="row-edit" title="Edit customer" onclick='openEditCustomer(${JSON.stringify(c)})'><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-      <button class="row-edit" title="Recharge via Antaranga" onclick="confirmRecharge('${c.customer_code}','${c.name.replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></button>
       <button class="row-remove" title="Remove customer" onclick="removeCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')">&times;</button>
     </td></tr>`;
   }).join('');
@@ -972,22 +1062,6 @@ async function removeCustomer(id, name){
   const { error } = await db.from('customers').update({ status:'inactive' }).eq('id', id).eq('admin_id', currentAdmin.id);
   if (error) { alert(error.message); return; }
   loadCustomers(); loadDashboard();
-}
-
-async function confirmRecharge(customerCode, name){
-  if (!confirm(`Recharge ${name} (${customerCode}) on Antaranga? This spends real wallet balance on your Antaranga account.`)) return;
-  try {
-    const res = await fetch(RECHARGE_SERVER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': RECHARGE_SECRET },
-      body: JSON.stringify({ customer_code: customerCode })
-    });
-    const result = await res.json();
-    if (result.status === 'success') alert(`Recharged ${name} successfully.\n${result.detail || ''}`);
-    else alert(`Recharge did not complete: ${result.error || result.detail || 'unknown error'}`);
-  } catch (e) {
-    alert('Could not reach the recharge automation server — is it running? (' + e.message + ')');
-  }
 }
 
 function currentMonthStr(){ const n = new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
