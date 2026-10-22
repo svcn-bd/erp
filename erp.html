@@ -172,6 +172,8 @@
     #minimizedBar{left:12px;bottom:12px;}
   }
 </style>
+<link rel="icon" type="image/png" href="svcn-logo.png">
+<link rel="apple-touch-icon" href="svcn-logo.png">
 </head>
 <body>
 <div class="hero-band"></div>
@@ -210,6 +212,7 @@
     <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
     <div class="tab" data-tab="customers" onclick="switchTab('customers')">Customers</div>
     <div class="tab" data-tab="reminders" onclick="switchTab('reminders')">Reminders</div>
+    <div class="tab" data-tab="ledger" onclick="switchTab('ledger')">Ledger</div>
     <div class="tab" data-tab="transactions" onclick="switchTab('transactions')">Transactions</div>
     <div class="tab" data-tab="verifications" onclick="switchTab('verifications')">Verifications<span class="tab-dot" id="verifDot"></span></div>
     <div class="tab" data-tab="tickets" onclick="switchTab('tickets')">Tickets<span class="tab-dot" id="ticketDot"></span></div>
@@ -275,6 +278,7 @@
         <h3 style="margin:0;">Billing cycle</h3>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <input type="month" id="reminderMonthPicker" style="width:auto;padding:8px 10px;" onchange="loadReminders()">
+          <button class="btn btn-primary btn-sm" id="openMonthBtn" style="display:none;" onclick="openSelectedMonth()">Open this month</button>
           <button class="btn btn-amber" id="bulkReminderBtn" onclick="startBulkReminders()" disabled>Send reminders to all due</button>
         </div>
       </div>
@@ -283,6 +287,23 @@
         <tr><th>Customer</th><th>Bill</th><th>Status</th><th></th></tr>
         <tbody id="reminderRows"></tbody>
       </table></div>
+    </div>
+  </div>
+
+  <div id="tab-ledger" style="display:none;">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">Month-by-month ledger</h3>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="ledgerRange" style="width:auto;padding:8px 10px;" onchange="loadLedger()">
+            <option value="6">Last 6 months</option>
+            <option value="12">Last 12 months</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openCurrentMonthFromLedger()">Open this month</button>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">One cell per customer per month. Green &#10003; = paid, amber = partly paid (amount still owed), red = unpaid. A "!" means the one-month grace has run out. Hover a cell for billed vs paid.</p>
+      <div class="table-wrap"><table id="ledgerTable"></table></div>
     </div>
   </div>
 
@@ -317,7 +338,7 @@
 
   <div id="tab-verifications" style="display:none;">
     <div class="panel">
-      <h3>Pending bKash verifications</h3>
+      <h3>Pending payment verifications</h3>
       <p class="hint" style="margin:0 0 14px;">Customers submit a transaction ID from the portal after sending money manually. Check it against your bKash statement, then approve to record the payment and clear their due.</p>
       <div class="table-wrap"><table>
         <tr><th>Submitted</th><th>Customer</th><th>Month</th><th style="text-align:right">Amount</th><th>Transaction ID</th><th></th></tr>
@@ -623,7 +644,7 @@
     </div>
   </div>
   <div class="field"><label>Mark all months up to and including</label><input id="bp_month" type="month"></div>
-  <p class="hint" style="margin-top:0;">For every active customer, any month with no existing payment record — from when they joined up to the month you pick — gets marked as <strong>paid</strong>. These are flagged as adjustment entries: they clear the customer's due and show as "Paid" everywhere, but are kept out of your real revenue totals since no money actually changed hands.</p>
+  <p class="hint" style="margin-top:0;">For every customer, any opened month up to the month you pick that still has an unpaid balance gets marked as <strong>paid</strong> (the remaining balance is recorded). These are flagged as adjustment entries: they clear the customer's due and show as "Paid" everywhere, but are kept out of your real revenue totals since no money actually changed hands.</p>
   <div id="bp_preview" class="hint"></div>
   <div style="display:flex;gap:8px;margin-top:12px;">
     <button class="btn btn-amber" onclick="applyBulkMarkPaid()">Apply</button>
@@ -853,7 +874,7 @@ function initSupabase(){
   return true;
 }
 
-const TABS = ['dashboard','customers','reminders','transactions','verifications','tickets','money','settings'];
+const TABS = ['dashboard','customers','reminders','ledger','transactions','verifications','tickets','money','settings'];
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===name) ? '' : 'none'; });
@@ -861,6 +882,7 @@ function switchTab(name){
   if (name==='money') loadMoneyAllocation();
   if (name==='settings'){ loadTemplates(); loadSyncStatus(); loadRecurringExpenses(); }
   if (name==='reminders') loadReminders();
+  if (name==='ledger') loadLedger();
   if (name==='verifications') loadVerifications();
   if (name==='tickets') loadTickets();
 }
@@ -1071,37 +1093,110 @@ async function loadReminders(){
   if (!picker.value) picker.value = currentMonthStr();
   const monthVal = picker.value; // 'YYYY-MM'
   const monthLabel = new Date(monthVal+'-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
+  const bulkBtn = document.getElementById('bulkReminderBtn');
+  const openBtn = document.getElementById('openMonthBtn');
 
-  const { data: customers } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id).order('name');
-  const customerIds = (customers||[]).map(c=>c.id);
-  const { data: payments } = customerIds.length
-    ? await db.from('payments').select('customer_id,billing_month,method').in('customer_id', customerIds).gte('billing_month', monthVal+'-01').lt('billing_month', nextMonthStr(monthVal)+'-01')
-    : { data: [] };
-  const paidSet = new Set((payments||[]).map(p=>p.customer_id));
-  const backfillSet = new Set((payments||[]).filter(p=>p.method==='backfill').map(p=>p.customer_id));
+  const { data: rows, error } = await db.from('billing_ledger_status').select('*')
+    .eq('admin_id', currentAdmin.id).eq('billing_month', monthVal+'-01').order('name');
 
   reminderDueQueue = [];
-  document.getElementById('reminderRows').innerHTML = (customers||[]).map(c=>{
-    const paid = paidSet.has(c.id);
-    const adjusted = backfillSet.has(c.id);
-    let statusCell;
-    if (paid && adjusted) statusCell = '<span class="pill adjusted">Paid (adjusted)</span>';
-    else if (paid) statusCell = '<span style="color:var(--green);font-weight:600;">Paid</span>';
-    else {
-      statusCell = `<span style="color:var(--red);font-weight:600;">Due ${fmt(c.monthly_bill)}</span>`;
-      reminderDueQueue.push({ name: c.name, phone: c.phone, amount: c.monthly_bill, monthLabel });
+  if (error){
+    document.getElementById('reminderRows').innerHTML = `<tr><td class="hint" colspan="4">Ledger not available: ${error.message}</td></tr>`;
+    openBtn.style.display = 'none'; bulkBtn.disabled = true; return;
+  }
+  if (!(rows||[]).length){
+    document.getElementById('reminderRows').innerHTML = `<tr><td class="hint" colspan="4">${monthLabel} hasn't been opened yet. Opening it creates one bill for every active customer.</td></tr>`;
+    openBtn.style.display = ''; bulkBtn.disabled = true;
+    bulkBtn.textContent = 'Send reminders to all due';
+    return;
+  }
+  openBtn.style.display = 'none';
+
+  const WA = '<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>';
+  document.getElementById('reminderRows').innerHTML = rows.map(r=>{
+    const bal = Number(r.balance)||0;
+    let statusCell, action = '';
+    if (r.status === 'paid'){
+      statusCell = '<span style="color:var(--green);font-weight:600;">Paid</span>';
+    } else {
+      const label = r.status === 'partial' ? `Partial — ${fmt(bal)} left` : `Due ${fmt(bal)}`;
+      const flag = r.grace_expired ? ' <span class="pill due">Overdue</span>' : '';
+      statusCell = `<span style="color:var(--red);font-weight:600;">${label}</span>${flag}`;
+      reminderDueQueue.push({ name: r.name, phone: r.phone, amount: bal, monthLabel });
+      action = `<a class="wa-btn" href="${waLink(r.phone, buildReminderMessageFor(r.name, bal, monthLabel))}" target="_blank" title="Send reminder">${WA}</a>`;
     }
     return `<tr>
-      <td>${c.name}</td>
-      <td class="muted">${fmt(c.monthly_bill)}</td>
+      <td>${r.name}</td>
+      <td class="muted">${fmt(r.amount_billed)}</td>
       <td>${statusCell}</td>
-      <td style="text-align:right;">${paid ? '' : `<a class="wa-btn" href="${waLink(c.phone, buildReminderMessageFor(c.name, c.monthly_bill, monthLabel))}" target="_blank" title="Send reminder"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`}</td>
+      <td style="text-align:right;">${action}</td>
     </tr>`;
-  }).join('') || '<tr><td class="hint" colspan="4">No active customers yet.</td></tr>';
+  }).join('');
 
-  const bulkBtn = document.getElementById('bulkReminderBtn');
   bulkBtn.disabled = reminderDueQueue.length === 0;
   bulkBtn.textContent = reminderDueQueue.length ? `Send reminders to all due (${reminderDueQueue.length})` : 'Send reminders to all due';
+}
+
+async function openMonthFor(monthVal){
+  const label = new Date(monthVal+'-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
+  if (!confirm(`Open ${label}? This creates one bill for every active customer at their current monthly bill. Months already opened are left alone.`)) return;
+  const { data, error } = await db.rpc('open_billing_month', { p_admin: currentAdmin.id, p_month: monthVal+'-01' });
+  if (error){ alert(error.message); return; }
+  alert(`${label} is open — ${data} new bill(s) created.`);
+  loadReminders(); loadLedger(); loadCustomers(); loadDashboard();
+}
+function openSelectedMonth(){ openMonthFor(document.getElementById('reminderMonthPicker').value || currentMonthStr()); }
+function openCurrentMonthFromLedger(){ openMonthFor(currentMonthStr()); }
+
+async function loadLedger(){
+  const table = document.getElementById('ledgerTable');
+  const n = Number(document.getElementById('ledgerRange').value) || 6;
+  const now = new Date();
+  const idx = now.getFullYear()*12 + now.getMonth() - (n-1);
+  const startStr = `${Math.floor(idx/12)}-${String((idx%12)+1).padStart(2,'0')}-01`;
+
+  const { data, error } = await db.from('billing_ledger_status').select('*')
+    .eq('admin_id', currentAdmin.id).gte('billing_month', startStr).order('name').limit(5000);
+  if (error){ table.innerHTML = `<tr><td class="hint">Ledger not available: ${error.message}</td></tr>`; return; }
+
+  const rows = data || [];
+  const months = [...new Set(rows.map(r => String(r.billing_month).slice(0,7)))].sort();
+  if (!months.length){ table.innerHTML = '<tr><td class="hint">No months opened yet. Use "Open this month".</td></tr>'; return; }
+
+  const byCust = new Map();
+  rows.forEach(r => {
+    if (!byCust.has(r.customer_id)) byCust.set(r.customer_id, { name:r.name, code:r.customer_code, cells:{} });
+    byCust.get(r.customer_id).cells[String(r.billing_month).slice(0,7)] = r;
+  });
+  const mLabel = m => new Date(m+'-01').toLocaleString('en', { month:'short', year:'2-digit', timeZone:'UTC' });
+
+  const head = '<tr><th>Customer</th>' + months.map(m => `<th style="text-align:center;">${mLabel(m)}</th>`).join('') + '</tr>';
+  const body = [...byCust.values()].map(c => '<tr><td>' + c.name + ' <span class="hint">(' + c.code + ')</span></td>' +
+    months.map(m => {
+      const r = c.cells[m];
+      if (!r) return '<td style="text-align:center;" class="muted">&middot;</td>';
+      const billed = Number(r.amount_billed)||0, paid = Number(r.amount_paid)||0, bal = Number(r.balance)||0;
+      const tip = `Billed ${fmt(billed)} · Paid ${fmt(paid)}`;
+      const flag = r.grace_expired ? ' !' : '';
+      let cell;
+      if (r.status === 'paid') cell = `<span class="pill paid" title="${tip}">&#10003;</span>`;
+      else if (r.status === 'partial') cell = `<span class="pill adjusted" title="${tip}">${fmt(bal)} left${flag}</span>`;
+      else cell = `<span class="pill due" title="${tip}">${fmt(bal)}${flag}</span>`;
+      return `<td style="text-align:center;">${cell}</td>`;
+    }).join('') + '</tr>').join('');
+
+  const tot = (fn) => months.map(m => {
+    const v = rows.filter(r => String(r.billing_month).slice(0,7) === m).reduce((s,r) => s + fn(r), 0);
+    return v;
+  });
+  const billedT = tot(r => Number(r.amount_billed)||0);
+  const paidT   = tot(r => Number(r.amount_paid)||0);
+  const foot =
+    '<tr><td><strong>Billed</strong></td>' + billedT.map(v => `<td style="text-align:center;">${fmt(v)}</td>`).join('') + '</tr>' +
+    '<tr><td><strong>Collected</strong></td>' + paidT.map(v => `<td style="text-align:center;color:var(--green);font-weight:600;">${fmt(v)}</td>`).join('') + '</tr>' +
+    '<tr><td><strong>Outstanding</strong></td>' + billedT.map((v,i) => `<td style="text-align:center;color:var(--red);font-weight:600;">${fmt(v - paidT[i])}</td>`).join('') + '</tr>';
+
+  table.innerHTML = head + body + foot;
 }
 
 // ---- Guided bulk WhatsApp reminders ----
@@ -1504,54 +1599,25 @@ async function submitExpense(){
 async function applyBulkMarkPaid(){
   const cutoff = document.getElementById('bp_month').value; // 'YYYY-MM'
   if (!cutoff){ alert('Pick a cutoff month first.'); return; }
-  const [cy, cm] = cutoff.split('-').map(Number);
+  const { data: rows, error: e1 } = await db.from('billing_ledger_status').select('customer_id,billing_month,balance')
+    .eq('admin_id', currentAdmin.id).lte('billing_month', cutoff+'-01').gt('balance', 0).limit(5000);
+  if (e1){ alert(e1.message); return; }
+  if (!(rows||[]).length){ alert('Nothing to mark — every opened month up to that point is already paid.'); return; }
+  if (!confirm(`This will mark ${rows.length} unpaid month(s) as paid across your customers, up to ${cutoff}. Continue?`)) return;
 
-  const { data: customers } = await db.from('customers').select('*').eq('status','active').eq('admin_id', currentAdmin.id);
-  const customerIds = (customers||[]).map(c=>c.id);
-  const { data: payments } = customerIds.length
-    ? await db.from('payments').select('customer_id,billing_month').in('customer_id', customerIds)
-    : { data: [] };
-  const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
-
-  const toInsert = [];
-  let bfCounter = 0;
-  const bfStamp = Date.now();
-  (customers||[]).forEach(c => {
-    const joined = c.created_at ? new Date(c.created_at) : null;
-    let startY = joined ? joined.getFullYear() : cy;
-    let startM = joined ? joined.getMonth()+1 : 1; // 1-based
-    // safety cap: never look back further than 24 months from cutoff
-    const capMonths = 24;
-    let cursorIdx = cy*12+cm;
-    const startIdx = Math.max(startY*12+startM, cursorIdx-capMonths+1);
-    for (let idx=startIdx; idx<=cursorIdx; idx++){
-      const y = Math.floor((idx-1)/12), m = ((idx-1)%12)+1;
-      const key = c.id + '|' + y + '-' + String(m).padStart(2,'0');
-      if (!existing.has(key)){
-        const lastDay = new Date(y, m, 0).getDate();
-        toInsert.push({
-          customer_id: c.id,
-          billing_month: `${y}-${String(m).padStart(2,'0')}-01`,
-          amount: c.monthly_bill,
-          method: 'backfill',
-          paid_through: `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
-          receipt_no: 'BF' + bfStamp + '-' + (++bfCounter)
-        });
-      }
-    }
-  });
-
-  if (!toInsert.length){ alert('Nothing to mark — everyone is already accounted for up to that month.'); return; }
-  if (!confirm(`This will mark ${toInsert.length} month(s) as paid across your customers, up to ${cutoff}. Continue?`)) return;
-
+  const lastDay = s => { const [y,m] = String(s).slice(0,7).split('-').map(Number); return `${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`; };
+  const stamp = Date.now(); let i = 0;
+  const toInsert = rows.map(r => ({
+    customer_id: r.customer_id, billing_month: r.billing_month, amount: Number(r.balance),
+    method: 'backfill', paid_through: lastDay(r.billing_month), receipt_no: 'BF' + stamp + '-' + (++i)
+  }));
   const { error } = await db.from('payments').insert(toInsert);
-  if (error) { alert(error.message); return; }
+  if (error){ alert(error.message); return; }
   closeModal('bulkPaidModal');
   alert(`Marked ${toInsert.length} month(s) as paid.`);
-  loadCustomers(); loadDashboard();
+  loadCustomers(); loadDashboard(); loadReminders(); loadLedger();
 }
 
-// live preview count as the admin picks a cutoff month
 document.addEventListener('input', (e)=>{
   if (e.target && e.target.id === 'bp_month') previewBulkMarkPaid();
 });
@@ -1560,28 +1626,12 @@ async function previewBulkMarkPaid(){
   const el = document.getElementById('bp_preview');
   if (!cutoff){ el.textContent=''; return; }
   el.textContent = 'Calculating…';
-  const [cy, cm] = cutoff.split('-').map(Number);
-  const { data: customers } = await db.from('customers').select('id,created_at').eq('status','active').eq('admin_id', currentAdmin.id);
-  const customerIds = (customers||[]).map(c=>c.id);
-  const { data: payments } = customerIds.length
-    ? await db.from('payments').select('customer_id,billing_month').in('customer_id', customerIds)
-    : { data: [] };
-  const existing = new Set((payments||[]).map(p => p.customer_id + '|' + monthKeyFromDateStr(p.billing_month)));
-  let count = 0;
-  (customers||[]).forEach(c => {
-    const joined = c.created_at ? new Date(c.created_at) : null;
-    let startY = joined ? joined.getFullYear() : cy;
-    let startM = joined ? joined.getMonth()+1 : 1;
-    const capMonths = 24;
-    let cursorIdx = cy*12+cm;
-    const startIdx = Math.max(startY*12+startM, cursorIdx-capMonths+1);
-    for (let idx=startIdx; idx<=cursorIdx; idx++){
-      const y = Math.floor((idx-1)/12), m = ((idx-1)%12)+1;
-      const key = c.id + '|' + y + '-' + String(m).padStart(2,'0');
-      if (!existing.has(key)) count++;
-    }
-  });
-  el.textContent = `This will create ${count} adjustment entr${count===1?'y':'ies'} across ${(customers||[]).length} customer(s).`;
+  const { data: rows } = await db.from('billing_ledger_status').select('customer_id,balance')
+    .eq('admin_id', currentAdmin.id).lte('billing_month', cutoff+'-01').gt('balance', 0).limit(5000);
+  const list = rows || [];
+  const custs = new Set(list.map(r => r.customer_id)).size;
+  const total = list.reduce((s,r) => s + (Number(r.balance)||0), 0);
+  el.textContent = `This will mark ${list.length} unpaid month(s) as paid across ${custs} customer(s), clearing ${fmt(total)} of dues.`;
 }
 
 // ---- Verifications (manual bKash submissions from the portal) ----
@@ -1595,9 +1645,9 @@ async function loadVerifications(){
     <td>${v.customer_name||''} <span class="hint">(${v.customer_code||''})</span></td>
     <td class="muted">${v.billing_month ? new Date(v.billing_month).toLocaleString('en',{month:'short',year:'numeric',timeZone:'UTC'}) : ''}</td>
     <td class="amt">${fmt(v.amount)}</td>
-    <td class="muted">${v.transaction_id}</td>
+    <td class="muted">${v.transaction_id}<br><span class="hint">${(v.method||'bkash').toUpperCase()}${v.sender_number ? ' · from ' + v.sender_number : ''}</span></td>
     <td style="text-align:right;white-space:nowrap;">
-      <button class="btn btn-primary btn-sm" onclick="approveVerification('${v.id}','${v.customer_id}','${v.billing_month}',${Number(v.amount)||0})">Approve</button>
+      <button class="btn btn-primary btn-sm" onclick="approveVerification('${v.id}','${v.customer_id}','${v.billing_month}',${Number(v.amount)||0},'${v.method||'bkash'}')">Approve</button>
       <button class="btn btn-ghost btn-sm" onclick="rejectVerification('${v.id}')">Reject</button>
     </td></tr>`).join('') || '<tr><td class="hint" colspan="6">No pending submissions.</td></tr>';
   loadVerificationsBadge();
@@ -1610,7 +1660,7 @@ async function loadVerificationsBadge(){
   dot.classList.toggle('show', (data||[]).length > 0);
 }
 
-async function approveVerification(id, customerId, billingMonth, amount){
+async function approveVerification(id, customerId, billingMonth, amount, method){
   if (!confirm('Approve this and record the payment?')) return;
   const receiptNo = 'RCPT' + Date.now();
   const month = billingMonth && billingMonth!=='null' ? billingMonth : (new Date().toISOString().slice(0,7)+'-01');
@@ -1618,18 +1668,19 @@ async function approveVerification(id, customerId, billingMonth, amount){
   const net = customer ? findNetworkStatus(customer) : null;
   const bwSnapshot = net && net.bill_amount != null ? Number(net.bill_amount) : null;
   const { error: payErr } = await db.from('payments').insert({
-    customer_id: customerId, billing_month: month, amount, method: 'bkash', paid_through: new Date().toISOString().slice(0,10), receipt_no: receiptNo,
+    customer_id: customerId, billing_month: month, amount, method: (method === 'nagad' ? 'nagad' : 'bkash'), paid_through: new Date().toISOString().slice(0,10), receipt_no: receiptNo,
     bandwidth_cost_snapshot: bwSnapshot
   });
   if (payErr){ alert(payErr.message); return; }
-  const { error } = await db.from('payment_verifications').update({ status:'approved' }).eq('id', id);
+  const { error } = await db.from('payment_verifications').update({ status:'approved', reviewed_at: new Date().toISOString() }).eq('id', id);
   if (error){ alert(error.message); return; }
   loadVerifications(); loadDashboard(); loadCustomers();
 }
 
 async function rejectVerification(id){
-  if (!confirm('Reject this submission?')) return;
-  const { error } = await db.from('payment_verifications').update({ status:'rejected' }).eq('id', id);
+  const reason = prompt('Reason for rejecting (the customer will see this):', 'Transaction ID not found');
+  if (reason === null) return;
+  const { error } = await db.from('payment_verifications').update({ status:'rejected', rejection_reason: reason.trim() || null, reviewed_at: new Date().toISOString() }).eq('id', id);
   if (error){ alert(error.message); return; }
   loadVerifications();
 }
