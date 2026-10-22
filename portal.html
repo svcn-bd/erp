@@ -43,6 +43,11 @@
   .brand-mark .fallback{color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;}
   .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin:0;}
   .brand-sub{font-size:11px;color:var(--text-lo);letter-spacing:.06em;text-transform:uppercase;margin:0;}
+
+  /* Login screen: banner image across the top, card overlapping its lower edge */
+  body.login-mode .hero-band{height:clamp(240px,38vw,420px);border-bottom:none;background:linear-gradient(180deg,rgba(7,10,28,.08) 0%,rgba(7,10,28,.22) 58%,var(--bg-end) 100%),url('portal-preview.jpg') 52% 30%/cover no-repeat,radial-gradient(ellipse 900px 300px at 20% -10%, rgba(47,125,225,.32), transparent 60%),linear-gradient(160deg,var(--bg),var(--bg-end) 70%);}
+  body.login-mode .wrap{padding-top:clamp(160px,27vw,320px);}
+  .login-brand{margin:0 0 16px;justify-content:flex-start;}
   .panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:16px;transition:box-shadow .18s ease, transform .18s ease;box-shadow:0 1px 2px rgba(0,0,0,.2);}
   .panel:hover{box-shadow:0 14px 32px rgba(0,0,0,.35);}
   .tip-row{display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border);}
@@ -231,7 +236,7 @@
 <link rel="icon" type="image/png" href="svcn-logo.png">
 <link rel="apple-touch-icon" href="svcn-logo.png">
 </head>
-<body>
+<body class="login-mode">
 <div class="hero-band"></div>
 <div class="bg-blob b1"></div>
 <div class="bg-blob b2"></div>
@@ -240,16 +245,15 @@
 
   <div id="configWarn" style="display:none;">Supabase URL/key not set — edit the CONFIG block near the top of the &lt;script&gt; in this file, then reload.</div>
 
-  <div class="brand">
-    <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:'SV'}))"></div>
-    <div><p class="brand-name" style="margin:0;">Satellite Vision</p><p class="brand-sub" style="margin:0;">Customer portal</p></div>
-  </div>
-
   <div id="loginView">
     <div id="loginStage">
       <div class="float-dots" id="floatDots"></div>
       <div class="panel login-card">
         <div class="signal-pulse"><span></span><span></span><span></span></div>
+        <div class="brand login-brand">
+    <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:'SV'}))"></div>
+    <div><p class="brand-name" style="margin:0;">Satellite Vision</p><p class="brand-sub" style="margin:0;">Customer portal</p></div>
+  </div>
         <h3><span class="icon-chip blue"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0"/></svg></span>Log in</h3>
         <div class="field"><label>Customer ID or mobile number</label><input id="loginCode" placeholder="e.g. RASV042 or 01712345678" autocapitalize="characters"></div>
         <div class="field"><label>Password</label><input id="loginPass" type="password"></div>
@@ -270,6 +274,10 @@
   </div>
 
   <div id="portalView" style="display:none;">
+    <div class="brand">
+    <div class="brand-mark"><img src="svcn-logo.png" alt="SVCN logo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:'SV'}))"></div>
+    <div><p class="brand-name" style="margin:0;">Satellite Vision</p><p class="brand-sub" style="margin:0;">Customer portal</p></div>
+  </div>
     <div class="panel stagger" style="animation-delay:.02s;">
       <div class="status-row">
         <h3 style="margin:0;"><span class="icon-chip blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></span>Hello, <span id="custName"></span> <span class="hello-wave">👋</span></h3>
@@ -513,6 +521,7 @@ function logout(){
   localStorage.removeItem('svcn_portal_cid');
   document.getElementById('portalView').style.display = 'none';
   document.getElementById('loginView').style.display = '';
+  document.body.classList.add('login-mode');
   document.getElementById('loginPass').value = '';
 }
 
@@ -548,6 +557,7 @@ async function getCoveredThrough(){
 async function showPortal(){
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('portalView').style.display = '';
+  document.body.classList.remove('login-mode');
 
   document.getElementById('custName').textContent = currentCustomer.name;
   document.getElementById('custCode').textContent = currentCustomer.customer_code;
