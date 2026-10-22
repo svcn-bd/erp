@@ -63,8 +63,8 @@
   .field{margin-bottom:13px;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .dues-note{background:var(--amber-soft);color:var(--amber);font-size:12.5px;padding:10px 12px;border-radius:10px;margin:12px 0;line-height:1.5;}
-  input{width:100%;padding:11px 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-2);color:var(--text-hi);transition:border-color .15s ease, box-shadow .15s ease;}
-  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.14);}
+  input,select{width:100%;padding:11px 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-2);color:var(--text-hi);transition:border-color .15s ease, box-shadow .15s ease;}
+  input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,125,225,.14);}
   .btn{border:none;font-weight:600;font-size:13px;padding:12px 18px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;transition:transform .15s ease, box-shadow .15s ease;text-decoration:none;}
   .btn:hover{transform:translateY(-1px);}
   .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-deep));color:#fff;box-shadow:0 6px 18px rgba(47,125,225,.3);}
@@ -233,12 +233,16 @@
       <div class="panel login-card">
         <div class="signal-pulse"><span></span><span></span><span></span></div>
         <h3><span class="icon-chip blue"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0"/></svg></span>Log in</h3>
-        <div class="field"><label>Customer ID</label><input id="loginCode" placeholder="e.g. RASV042" autocapitalize="characters"></div>
+        <div class="field"><label>Customer ID or mobile number</label><input id="loginCode" placeholder="e.g. RASV042 or 01712345678" autocapitalize="characters"></div>
         <div class="field"><label>Password</label><input id="loginPass" type="password"></div>
         <button class="btn btn-primary" onclick="login()">Log in</button>
-        <p class="error" id="loginError">Incorrect customer ID or password.</p>
+        <p class="error" id="loginError">Incorrect customer ID / mobile number or password.</p>
+        <div id="loginPicker" style="display:none;margin-top:12px;">
+          <p class="hint" style="margin:0 0 8px;">This number is linked to more than one connection — which one is yours?</p>
+          <div id="loginPickerList"></div>
+        </div>
         <div class="tagline-row"><span class="bars-mini"><span></span><span></span><span></span><span></span></span> Live network — connected across Nasirabad</div>
-        <p class="hint">Your customer ID is your username. Your password starts the same as your ID — change it below once logged in.</p>
+        <p class="hint">Your customer ID or registered mobile number is your username. Your password starts the same as your ID — change it below once logged in.</p>
       </div>
     </div>
     <div class="site-footer">
@@ -254,6 +258,7 @@
         <span class="badge" id="statusBadge"></span>
       </div>
       <p class="hint" id="badgeHint" style="display:none;margin-top:-8px;"></p>
+      <p class="hint" id="coverNote" style="display:none;margin-top:-8px;"></p>
       <div class="chips-row">
         <div class="chip"><p class="k">Customer ID</p><p class="v" id="custCode"></p></div>
         <div class="chip"><p class="k">Package</p><p class="v" id="custPackage"></p></div>
@@ -279,6 +284,11 @@
       <div id="histList"></div>
     </div>
 
+    <div class="panel stagger" id="receiptsPanel" style="display:none;animation-delay:.09s;">
+      <h3><span class="icon-chip teal"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg></span>Receipts</h3>
+      <div id="receiptsList"></div>
+    </div>
+
     <div class="panel stagger" id="adjustmentNotesPanel" style="display:none;animation-delay:.1s;">
       <h3><span class="icon-chip amber"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h2"/></svg></span>Notes from SVCN</h3>
       <div id="adjustmentNotesList"></div>
@@ -287,21 +297,21 @@
     <div class="panel stagger" style="animation-delay:.14s;">
       <h3><span class="icon-chip amber"><svg viewBox="0 0 24 24"><path d="M2 10h20M6 15h4M2 6h20v12H2z"/></svg></span>Send your bill payment</h3>
       <div id="bkashFlow">
+        <div class="field" id="payMethodRow" style="display:none;">
+          <label>Pay with</label>
+          <select id="payMethodSel" onchange="setPayMethod(this.value)"><option value="bkash">bKash</option><option value="nagad">Nagad</option></select>
+        </div>
         <div class="bkash-number-box">
-          <div><p class="lbl">bKash — Send Money</p><p class="num" id="bkashNumberTxt">01842292646</p></div>
+          <div><p class="lbl" id="payMethodLbl">bKash — Send Money</p><p class="num" id="bkashNumberTxt">01842292646</p></div>
           <button class="copy-btn" onclick="copyBkashNumber(event)">Copy number</button>
         </div>
-        <ol class="steps-list">
-          <li>Open your bKash app (or dial <strong>*247#</strong>) and copy the number above.</li>
-          <li>Choose <strong>Send Money</strong> — not "Payment" — and paste the number.</li>
-          <li>Enter your bill amount, then in the reference field enter your customer ID: <span class="ref-code" id="refCodeHint">—</span></li>
-          <li>Complete the send, then copy the <strong>Transaction ID</strong> bKash gives you and paste it below.</li>
-        </ol>
+        <ol class="steps-list" id="payStepsList"></ol>
         <p class="dues-note" id="duesNote" style="display:none;"></p>
         <div class="row">
-          <div class="field"><label>Which month is this for?</label><input id="txnMonth" type="month"></div>
+          <div class="field"><label>Which month is this for? (applied to your oldest unpaid month first)</label><input id="txnMonth" type="month"></div>
           <div class="field"><label>Amount sent (Tk)</label><input id="txnAmount" type="number"></div>
         </div>
+        <div class="field"><label>Number you sent from</label><input id="txnSender" type="tel" placeholder="e.g. 01712345678"></div>
         <div class="field"><label>Transaction ID</label><input id="txnId" placeholder="e.g. 8N7A6B5C4D"></div>
         <button class="btn btn-amber" onclick="submitBkashVerification()" id="submitTxnBtn">Submit for verification</button>
         <p class="hint" style="margin-top:8px;" id="bkashSubmitHint"></p>
@@ -434,15 +444,47 @@ function spawnFloatDots(){
   host.innerHTML = html;
 }
 
+function normalizePhone(s){
+  let d = String(s||'').replace(/\D/g, '');
+  if (d.startsWith('880')) d = d.slice(2);              // 8801712345678 -> 01712345678
+  if (d.length === 10 && d.startsWith('1')) d = '0' + d; // 1712345678  -> 01712345678
+  return d;
+}
+function looksLikePhone(s){ return /^01\d{9}$/.test(normalizePhone(s)); }
+
+let loginCandidates = [];
 async function login(){
-  const code = document.getElementById('loginCode').value.trim();
+  const idRaw = document.getElementById('loginCode').value.trim();
   const pass = document.getElementById('loginPass').value;
-  document.getElementById('loginError').style.display = 'none';
-  if (!code || !pass) return;
-  const { data, error } = await db.from('customers').select('*').eq('customer_code', code).eq('portal_password', pass).eq('status','active').maybeSingle();
-  if (error || !data){ document.getElementById('loginError').style.display = 'block'; return; }
-  currentCustomer = data;
-  localStorage.setItem('svcn_portal_code', code);
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  document.getElementById('loginPicker').style.display = 'none';
+  if (!idRaw || !pass) return;
+
+  let q = db.from('customers').select('*').eq('portal_password', pass).eq('status','active');
+  if (looksLikePhone(idRaw)){
+    const d = normalizePhone(idRaw);
+    q = q.in('phone', [d, '88' + d, '+88' + d]);
+  } else {
+    q = q.in('customer_code', [idRaw, idRaw.toUpperCase()]);
+  }
+  const { data, error } = await q;
+  if (error || !data || !data.length){ errEl.style.display = 'block'; return; }
+  if (data.length === 1){ finishLogin(data[0]); return; }
+
+  // Same mobile number on several connections — let the customer pick theirs
+  loginCandidates = data;
+  document.getElementById('loginPickerList').innerHTML = data.map((c, i) =>
+    `<button class="btn btn-ghost" style="width:100%;text-align:left;margin-bottom:8px;" onclick="pickConnection(${i})">${c.name} · ${c.customer_code} · ${c.package_type === 'wifi_dish' ? 'Wifi + Dish' : 'Wifi'}</button>`
+  ).join('');
+  document.getElementById('loginPicker').style.display = '';
+}
+function pickConnection(i){ if (loginCandidates[i]) finishLogin(loginCandidates[i]); }
+function finishLogin(c){
+  currentCustomer = c;
+  localStorage.setItem('svcn_portal_cid', c.id);
+  localStorage.removeItem('svcn_portal_code');
+  document.getElementById('loginPicker').style.display = 'none';
   showPortal();
 }
 
@@ -450,6 +492,7 @@ function logout(){
   stopLiveUpdates();
   currentCustomer = null;
   localStorage.removeItem('svcn_portal_code');
+  localStorage.removeItem('svcn_portal_cid');
   document.getElementById('portalView').style.display = 'none';
   document.getElementById('loginView').style.display = '';
   document.getElementById('loginPass').value = '';
@@ -468,16 +511,20 @@ function stopLiveUpdates(){
 // Same paid/unpaid rule renderMonthlyLedger uses for a given month, applied to the
 // current calendar month specifically — kept as one shared rule so the top badge's
 // hint and the ledger below it can never disagree about whether this month is paid.
-async function isThisMonthPaidFromPayments(){
-  const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-  const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1).toISOString().slice(0,10);
-  const { data } = await db.from('payments').select('amount,method').eq('customer_id', currentCustomer.id).gte('billing_month', monthStart).lt('billing_month', nextMonth);
-  if (!data || !data.length) return false;
-  const hasBackfill = data.some(p => p.method === 'backfill');
-  const total = data.reduce((s,p) => s + (Number(p.amount)||0), 0);
-  if (hasBackfill && total <= 0) return true;
-  return total >= currentCustomer.monthly_bill;
+// This month's paid/unpaid state comes straight from the monthly ledger, so the top
+// badge and the history below it always read the same numbers.
+async function isThisMonthPaidFromLedger(){
+  const key = monthKeyFromLocalDate(new Date()) + '-01';
+  const { data } = await db.from('billing_ledger_status').select('status').eq('customer_id', currentCustomer.id).eq('billing_month', key).maybeSingle();
+  return !!data && data.status === 'paid';
+}
+
+// Last day of the most recent fully paid month, e.g. "31 October 2026" (null if none yet)
+async function getCoveredThrough(){
+  const { data } = await db.from('billing_ledger_status').select('billing_month').eq('customer_id', currentCustomer.id).eq('status','paid').order('billing_month', { ascending:false }).limit(1);
+  if (!data || !data.length) return null;
+  const [y, m] = String(data[0].billing_month).slice(0,7).split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toLocaleDateString('en', { day:'numeric', month:'long', year:'numeric', timeZone:'UTC' });
 }
 
 async function showPortal(){
@@ -488,7 +535,7 @@ async function showPortal(){
   document.getElementById('custCode').textContent = currentCustomer.customer_code;
   document.getElementById('custPackage').textContent = currentCustomer.package_type === 'wifi_dish' ? 'Wifi + Dish' : 'Wifi';
   document.getElementById('custBill').textContent = fmt(currentCustomer.monthly_bill);
-  document.getElementById('refCodeHint').textContent = currentCustomer.customer_code;
+  renderPaySteps();
 
   await refreshDuesBadge();
 
@@ -498,6 +545,7 @@ async function showPortal(){
   document.getElementById('billingBtn').href = `https://wa.me/${BILLING_PHONE}?text=${billingMsg}`;
 
   await renderMonthlyLedger();
+  await loadReceipts();
   await loadAdjustmentNotes();
   await loadNetworkStatus();
   await loadMyTickets();
@@ -528,8 +576,14 @@ async function refreshDuesBadge(){
   badge.textContent = isPaid ? 'Paid' : `Due ${fmt(displayDue)}`;
   badge.className = 'badge ' + (isPaid ? 'paid' : 'due');
 
+  const coverNote = document.getElementById('coverNote');
+  getCoveredThrough().then(d => {
+    if (d && isPaid){ coverNote.style.display = ''; coverNote.textContent = `Covered through ${d}.`; }
+    else coverNote.style.display = 'none';
+  });
+
   const badgeHint = document.getElementById('badgeHint');
-  const monthPaid = await isThisMonthPaidFromPayments();
+  const monthPaid = await isThisMonthPaidFromLedger();
   if (!isPaid && monthPaid){
     badgeHint.style.display = '';
     badgeHint.textContent = `This month's bill is already paid — the ${fmt(displayDue)} above is a separate note added to your account (see "Notes from SVCN" below).`;
@@ -677,41 +731,208 @@ async function loadUptimeHistory(currentStatus){
 function monthKeyFromDateStr(s){ return String(s||'').slice(0,7); }
 function monthKeyFromLocalDate(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
 
-async function renderMonthlyLedger(){
-  const { data: payments } = await db.from('payments').select('*').eq('customer_id', currentCustomer.id);
-  const byMonth = new Map(); // key -> { total, methods:[], hasBackfill }
-  (payments||[]).forEach(p => {
-    const key = monthKeyFromDateStr(p.billing_month);
-    const entry = byMonth.get(key) || { total:0, methods:[], hasBackfill:false };
-    entry.total += Number(p.amount)||0;
-    if (p.method === 'backfill') entry.hasBackfill = true; else entry.methods.push(p.method);
-    byMonth.set(key, entry);
-  });
+// Customers only see history from this month onward (the fresh-start month)
+const PORTAL_HISTORY_START = '2026-10-01';
 
-  const joined = currentCustomer.created_at ? new Date(currentCustomer.created_at) : null;
-  const now = new Date();
-  const months = [];
-  for (let i=0; i<12; i++){
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    if (joined && d < new Date(joined.getFullYear(), joined.getMonth(), 1)) break;
-    months.push(d);
+async function renderMonthlyLedger(){
+  const { data: rows } = await db.from('billing_ledger_status').select('*')
+    .eq('customer_id', currentCustomer.id).gte('billing_month', PORTAL_HISTORY_START)
+    .order('billing_month', { ascending:false }).limit(24);
+  const el = document.getElementById('histList');
+  if (!rows || !rows.length){ el.innerHTML = '<p class="hint">No billing history yet.</p>'; return; }
+
+  el.innerHTML = rows.map(r => {
+    const label = new Date(String(r.billing_month).slice(0,7) + '-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
+    const billed = Number(r.amount_billed)||0, paid = Number(r.amount_paid)||0, bal = Number(r.balance)||0;
+    if (r.status === 'paid'){
+      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${fmt(paid)} paid</p></div><span class="pill paid">Paid</span></div>`;
+    }
+    if (r.status === 'partial'){
+      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${fmt(paid)} of ${fmt(billed)} · ${fmt(bal)} left${r.grace_expired ? ' · overdue' : ''}</p></div><span class="pill partial">Partial</span></div>`;
+    }
+    return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${fmt(bal)} due${r.grace_expired ? ' · overdue' : ''}</p></div><span class="pill due">Due</span></div>`;
+  }).join('');
+}
+
+// ---- Receipts (real payments only — adjustment entries have no receipt) ----
+const METHOD_NAMES = { bkash:'bKash', nagad:'Nagad', cash:'Cash', bank:'Bank' };
+async function loadReceipts(){
+  const panel = document.getElementById('receiptsPanel');
+  try {
+    const { data, error } = await db.from('payments').select('id,amount,method,receipt_no,created_at')
+      .eq('customer_id', currentCustomer.id).neq('method','backfill').order('created_at', { ascending:false }).limit(12);
+    if (error || !data || !data.length){ panel.style.display = 'none'; return; }
+    panel.style.display = '';
+    document.getElementById('receiptsList').innerHTML = data.map(p => `<div class="month-row">
+      <div><p class="m">${fmt(p.amount)} · ${METHOD_NAMES[p.method] || p.method}</p><p class="meth">${new Date(p.created_at).toLocaleDateString('en',{day:'numeric',month:'short',year:'numeric'})} · ${p.receipt_no}</p></div>
+      <button class="btn btn-ghost" style="width:auto;padding:7px 12px;font-size:12px;" onclick="downloadReceipt('${p.id}')">Download</button>
+    </div>`).join('');
+  } catch(e){ panel.style.display = 'none'; }
+}
+
+async function downloadReceipt(paymentId){
+  const { data: p } = await db.from('payments').select('*').eq('id', paymentId).eq('customer_id', currentCustomer.id).maybeSingle();
+  if (!p || p.method === 'backfill') return;
+  const { data: allocs } = await db.from('payment_allocations').select('amount, billing_ledger(billing_month)').eq('payment_id', paymentId);
+  const months = [...new Set((allocs||[]).filter(a => a.billing_ledger).map(a => String(a.billing_ledger.billing_month).slice(0,7)))].sort();
+  const lbl = m => new Date(m + '-01').toLocaleString('en', { month:'short', year:'numeric', timeZone:'UTC' });
+  const covers = months.length ? months.map(lbl).join(', ') : lbl(String(p.billing_month).slice(0,7));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 640; canvas.height = 860;
+  drawReceiptOn(canvas, {
+    name: currentCustomer.name, code: currentCustomer.customer_code, month: covers,
+    amount: Number(p.amount).toLocaleString('en-BD'), method: METHOD_NAMES[p.method] || p.method,
+    paidOn: new Date(p.created_at).toLocaleDateString('en', { day:'numeric', month:'short', year:'numeric' }),
+    receiptNo: p.receipt_no
+  });
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = p.receipt_no + '.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }, 'image/png');
+}
+
+function roundRectPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function drawReceiptOn(canvas, {name, code, month, amount, method, paidOn, receiptNo}){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Deep navy background
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#0a0e27');
+  bg.addColorStop(1, '#131a3d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Faint scattered network dots for texture
+  for (let i=0; i<55; i++){
+    const dx = Math.random()*W, dy = Math.random()*H;
+    const r = Math.random()*1.6 + 0.4;
+    ctx.beginPath();
+    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(79,209,197,0.3)' : 'rgba(90,150,255,0.28)';
+    ctx.arc(dx, dy, r, 0, Math.PI*2);
+    ctx.fill();
   }
 
-  document.getElementById('histList').innerHTML = months.map(d=>{
-    const key = monthKeyFromLocalDate(d);
-    const label = d.toLocaleString('en', { month:'long', year:'numeric' });
-    const entry = byMonth.get(key);
-    if (entry && entry.hasBackfill && entry.total <= 0){
-      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">Marked paid — adjustment entry</p></div><span class="pill adjusted">Paid</span></div>`;
+  // Brand mark, top-left
+  const badgeGrad = ctx.createLinearGradient(20, 16, 70, 66);
+  badgeGrad.addColorStop(0, '#2f7de1'); badgeGrad.addColorStop(1, '#12a894');
+  ctx.beginPath(); ctx.fillStyle = badgeGrad; ctx.arc(46, 42, 24, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = '700 16px "Space Grotesk", Arial, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SV', 46, 43);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff'; ctx.font = '700 15px "Space Grotesk", Arial, sans-serif';
+  ctx.fillText('SATELLITE VISION', 80, 38);
+  ctx.fillStyle = '#8fa3d1'; ctx.font = '600 9px Inter, Arial, sans-serif';
+  ctx.fillText('C A B L E   N E T W O R K', 80, 52);
+
+  // Glowing green checkmark
+  const cx = W/2, cy = 195, R = 60;
+  for (let g=3; g>=1; g--){
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(31,157,99,${0.08*g})`;
+    ctx.arc(cx, cy, R + g*14, 0, Math.PI*2);
+    ctx.fill();
+  }
+  const circleGrad = ctx.createLinearGradient(cx-R, cy-R, cx+R, cy+R);
+  circleGrad.addColorStop(0, '#28c76f'); circleGrad.addColorStop(1, '#1f9d63');
+  ctx.beginPath(); ctx.fillStyle = circleGrad; ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx-26, cy+2);
+  ctx.lineTo(cx-7, cy+22);
+  ctx.lineTo(cx+30, cy-24);
+  ctx.stroke();
+
+  // Sparkle diamonds around the checkmark
+  function diamond(x, y, s, color){
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4);
+    ctx.fillStyle = color; ctx.fillRect(-s/2, -s/2, s, s);
+    ctx.restore();
+  }
+  diamond(cx-105, cy-55, 10, 'rgba(79,209,197,0.8)');
+  diamond(cx+110, cy-40, 8, 'rgba(90,150,255,0.8)');
+  diamond(cx+95, cy+65, 7, 'rgba(79,209,197,0.7)');
+  diamond(cx-95, cy+60, 9, 'rgba(90,150,255,0.6)');
+
+  // Title — "PAYMENT " in white + "SUCCESSFUL!" in green
+  ctx.font = '800 32px "Space Grotesk", Arial, sans-serif';
+  const part1 = 'PAYMENT ', part2 = 'SUCCESSFUL!';
+  const w1 = ctx.measureText(part1).width, w2 = ctx.measureText(part2).width;
+  const startX = cx - (w1+w2)/2;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff'; ctx.fillText(part1, startX, 300);
+  ctx.fillStyle = '#28c76f'; ctx.fillText(part2, startX+w1, 300);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#9aa8cc'; ctx.font = '500 14px Inter, Arial, sans-serif';
+  ctx.fillText(`THANK YOU, ${name.toUpperCase()}`, cx, 328);
+
+  // Glass info card
+  const cardX = 40, cardY = 355, cardW = W-80;
+  const rows = [
+    ['Customer', name], ['Customer ID', code], ['Covers', month],
+    ['Amount paid', 'Tk ' + amount], ['Method', method],
+    ['Date', paidOn], ['Receipt no.', receiptNo]
+  ];
+  const rowH = 34, cardH = rows.length*rowH + 36;
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, 18);
+  ctx.fillStyle = 'rgba(255,255,255,0.045)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(93,169,255,0.35)'; ctx.lineWidth = 1.4; ctx.stroke();
+
+  let ry = cardY + 34;
+  ctx.textAlign = 'left';
+  rows.forEach(([label, val], i)=>{
+    if (i > 0){
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cardX+24, ry-rowH+12); ctx.lineTo(cardX+cardW-24, ry-rowH+12); ctx.stroke();
     }
-    if (entry && entry.total >= currentCustomer.monthly_bill){
-      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${entry.methods.join(', ')||'adjustment'} · ${fmt(entry.total)}</p></div><span class="pill paid">Paid</span></div>`;
-    }
-    if (entry && entry.total > 0){
-      return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${entry.methods.join(', ')||'adjustment'} · ${fmt(entry.total)} of ${fmt(currentCustomer.monthly_bill)}</p></div><span class="pill partial">Partial</span></div>`;
-    }
-    return `<div class="month-row"><p class="m">${label}</p><span class="pill due">Due</span></div>`;
-  }).join('') || '<p class="hint">No billing history yet.</p>';
+    ctx.fillStyle = '#9aa8cc'; ctx.font = '500 13px Inter, Arial, sans-serif';
+    ctx.fillText(label, cardX+24, ry);
+    ctx.fillStyle = '#fff'; ctx.font = '700 13px Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(val), cardX+cardW-24, ry);
+    ctx.textAlign = 'left';
+    ry += rowH;
+  });
+
+  // Highlight row — small check-badge icons
+  const iconY = cardY + cardH + 40;
+  const highlights = [['Secure payment', '#2f7de1'], ['Instant confirmation', '#12a894'], ['24/7 support', '#7c5ce0']];
+  const slotW = cardW / 3;
+  highlights.forEach(([label, color], i)=>{
+    const hx = cardX + slotW*i + slotW/2;
+    ctx.beginPath(); ctx.fillStyle = color + '33'; ctx.arc(hx, iconY, 16, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = color; ctx.font = '700 13px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('✓', hx, iconY+1);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#c7d0ea'; ctx.font = '600 10px Inter, Arial, sans-serif';
+    ctx.fillText(label, hx, iconY+34);
+  });
+  ctx.textAlign = 'left';
+
+  // Footer tagline
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff'; ctx.font = 'italic 600 17px Georgia, serif';
+  ctx.fillText('Stay Connected, Stay Enjoyed', cx, iconY+80);
+  ctx.fillStyle = '#28c76f'; ctx.font = '600 12px Arial, sans-serif';
+  ctx.fillText('আপনার আস্থা, আমাদের দায়িত্ব', cx, iconY+102);
+  ctx.fillStyle = '#5c6a94'; ctx.font = '400 10px Inter, Arial, sans-serif';
+  ctx.fillText('This is a computer-generated receipt — no signature required.', cx, iconY+126);
+  ctx.textAlign = 'left';
 }
 
 // Shows the notes an admin attached when manually adjusting this customer's dues in
@@ -854,35 +1075,70 @@ async function changePassword(){
 }
 
 async function tryResumeSession(){
-  const savedCode = localStorage.getItem('svcn_portal_code');
-  if (!savedCode) return;
-  const { data } = await db.from('customers').select('*').eq('customer_code', savedCode).eq('status','active').maybeSingle();
+  const savedId = localStorage.getItem('svcn_portal_cid');
+  const savedCode = localStorage.getItem('svcn_portal_code'); // older sessions
+  if (!savedId && !savedCode) return;
+  let q = db.from('customers').select('*').eq('status','active');
+  q = savedId ? q.eq('id', savedId) : q.eq('customer_code', savedCode);
+  const { data } = await q.maybeSingle();
   if (data){ currentCustomer = data; showPortal(); }
 }
 
-// ---- bKash manual "Send Money" verification flow ----
+// ---- bKash / Nagad manual "Send Money" verification flow ----
+const NAGAD_NUMBER = '';   // put your Nagad Send Money number here to offer Nagad as a payment option
+let payMethod = 'bkash';
+function payNumber(){ return payMethod === 'nagad' ? NAGAD_NUMBER : BKASH_NUMBER; }
+function payMethodName(){ return payMethod === 'nagad' ? 'Nagad' : 'bKash'; }
+
+function renderPaySteps(){
+  const code = currentCustomer ? currentCustomer.customer_code : '—';
+  const name = payMethodName();
+  const dial = payMethod === 'nagad' ? '*167#' : '*247#';
+  document.getElementById('payMethodRow').style.display = NAGAD_NUMBER ? '' : 'none';
+  document.getElementById('payMethodLbl').textContent = `${name} — Send Money`;
+  document.getElementById('bkashNumberTxt').textContent = payNumber();
+  document.getElementById('payStepsList').innerHTML = `
+    <li>Open your ${name} app (or dial <strong>${dial}</strong>) and copy the number above.</li>
+    <li>Choose <strong>Send Money</strong> — not "Payment" — and paste the number.</li>
+    <li>Enter your bill amount, then in the reference field enter your customer ID: <span class="ref-code" id="refCodeHint">${code}</span></li>
+    <li>Complete the send, then copy the <strong>Transaction ID</strong> ${name} gives you and paste it below.</li>`;
+  const sender = document.getElementById('txnSender');
+  if (sender && !sender.value && currentCustomer && currentCustomer.phone) sender.value = currentCustomer.phone;
+}
+function setPayMethod(m){ payMethod = m; renderPaySteps(); }
+
 function copyBkashNumber(evt){
   const btn = evt ? evt.currentTarget : document.querySelector('.copy-btn');
-  navigator.clipboard?.writeText(BKASH_NUMBER).then(()=>{
+  const num = payNumber();
+  navigator.clipboard?.writeText(num).then(()=>{
     const old = btn.textContent;
     btn.textContent = 'Copied!';
     setTimeout(()=>{ btn.textContent = old; }, 1500);
   }).catch(()=>{
-    alert(`Copy this number: ${BKASH_NUMBER}`);
+    alert(`Copy this number: ${num}`);
   });
 }
 
 async function submitBkashVerification(){
-  const txn = document.getElementById('txnId').value.trim();
+  const txn = document.getElementById('txnId').value.trim().toUpperCase();
   const hint = document.getElementById('bkashSubmitHint');
   hint.style.color = '';
-  if (!txn){ hint.textContent = 'Paste your bKash transaction ID first.'; hint.style.color = 'var(--red)'; return; }
+  if (!txn){ hint.textContent = `Paste your ${payMethodName()} transaction ID first.`; hint.style.color = 'var(--red)'; return; }
   const monthPicked = document.getElementById('txnMonth').value; // 'YYYY-MM'
   if (!monthPicked){ hint.textContent = 'Pick which month this payment is for.'; hint.style.color = 'var(--red)'; return; }
   const amountSent = Number(document.getElementById('txnAmount').value || 0);
   if (!amountSent){ hint.textContent = 'Enter the amount you sent.'; hint.style.color = 'var(--red)'; return; }
+  const senderRaw = document.getElementById('txnSender').value.trim();
   const btn = document.getElementById('submitTxnBtn');
   btn.disabled = true; btn.textContent = 'Submitting…';
+
+  // The same transaction ID can't be submitted twice (rejected ones can be retried)
+  const { data: dup } = await db.from('payment_verifications').select('id').eq('transaction_id', txn).neq('status','rejected').limit(1);
+  if (dup && dup.length){
+    btn.disabled = false; btn.textContent = 'Submit for verification';
+    hint.textContent = 'This transaction ID has already been submitted.'; hint.style.color = 'var(--red)';
+    return;
+  }
 
   const monthVal = monthPicked + '-01';
   const payload = {
@@ -893,12 +1149,16 @@ async function submitBkashVerification(){
     transaction_id: txn,
     amount: amountSent,
     billing_month: monthVal,
+    method: payMethod,
+    sender_number: senderRaw ? (looksLikePhone(senderRaw) ? normalizePhone(senderRaw) : senderRaw) : null,
     status: 'pending'
   };
   const { error } = await db.from('payment_verifications').insert(payload);
   btn.disabled = false; btn.textContent = 'Submit for verification';
   if (error){
-    hint.textContent = 'Could not submit right now — please try again shortly or message support.';
+    hint.textContent = (error.code === '23505')
+      ? 'This transaction ID has already been submitted.'
+      : 'Could not submit right now — please try again shortly or message support.';
     hint.style.color = 'var(--red)';
     console.error(error);
     return;
@@ -910,7 +1170,7 @@ async function submitBkashVerification(){
   subscribeToVerification();
 }
 
-function showVerifyTick(status){
+function showVerifyTick(status, reason){
   document.getElementById('bkashFlow').style.display = 'none';
   const wrap = document.getElementById('verifyTickWrap');
   wrap.classList.add('show');
@@ -924,7 +1184,8 @@ function showVerifyTick(status){
     icon.classList.remove('rejected');
     icon.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="4,13 9,18 20,6"/></svg>';
     title.textContent = 'Payment verified!';
-    msg.textContent = 'Your account has been marked as paid for this month.';
+    msg.textContent = 'Your account has been recharged.';
+    getCoveredThrough().then(d => { if (d) msg.textContent = `Your account has been recharged — covered through ${d}. Your receipt is in the Receipts section below.`; });
     eta.style.display = 'none';
     retryBtn.style.display = 'none';
     celebrateApproval(icon);
@@ -932,7 +1193,9 @@ function showVerifyTick(status){
     icon.classList.add('rejected');
     icon.innerHTML = '<svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
     title.textContent = 'Could not verify this transaction';
-    msg.textContent = 'We couldn\'t match this transaction ID. Please double check it or contact support.';
+    msg.textContent = reason
+      ? `Reason: ${reason}. You can correct it and try again, or contact support.`
+      : 'We couldn\'t match this transaction ID. Please double check it or contact support.';
     eta.style.display = 'none';
     retryBtn.style.display = '';
   } else {
@@ -991,7 +1254,7 @@ async function checkPendingVerification(){
       localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id);
       await showPortal(); // refresh badge, dues and ledger now that a payment landed
     } else if (data.status === 'rejected'){
-      showVerifyTick('rejected');
+      showVerifyTick('rejected', data.rejection_reason);
       localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id);
     }
   } catch(e){ /* table may not exist yet — fail quietly */ }
@@ -1014,7 +1277,7 @@ function subscribeToVerification(){
     }, payload => {
       const row = payload.new;
       if (row.status === 'approved'){ showVerifyTick('approved'); localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id); showPortal(); }
-      else if (row.status === 'rejected'){ showVerifyTick('rejected'); localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id); }
+      else if (row.status === 'rejected'){ showVerifyTick('rejected', row.rejection_reason); localStorage.removeItem('svcn_pending_txn_' + currentCustomer.id); }
     })
     .subscribe();
 
@@ -1036,6 +1299,8 @@ function subscribeLiveUpdates(){
   if (liveChannel) db.removeChannel(liveChannel);
   liveChannel = db.channel('live-' + currentCustomer.id)
     .on('postgres_changes', { event:'*', schema:'public', table:'payments', filter:`customer_id=eq.${currentCustomer.id}` },
+      () => { renderMonthlyLedger(); refreshDuesBadge(); loadReceipts(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'billing_ledger', filter:`customer_id=eq.${currentCustomer.id}` },
       () => { renderMonthlyLedger(); refreshDuesBadge(); })
     .on('postgres_changes', { event:'*', schema:'public', table:'tickets', filter:`customer_id=eq.${currentCustomer.id}` },
       () => loadMyTickets())
@@ -1064,6 +1329,7 @@ function startLiveRefresh(){
     if (!currentCustomer || document.getElementById('portalView').style.display === 'none') return;
     refreshDuesBadge();
     renderMonthlyLedger();
+    loadReceipts();
     loadAdjustmentNotes();
     loadNetworkStatus();
     loadMyTickets();
