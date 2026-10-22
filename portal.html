@@ -212,6 +212,22 @@
   .verify-tick-wrap p{font-size:13px;color:var(--text-mid);margin:0 0 4px;max-width:320px;margin-left:auto;margin-right:auto;}
   .verify-eta{display:inline-flex;align-items:center;gap:6px;background:var(--amber-soft);color:var(--amber);font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;margin-top:10px;}
 </style>
+<!-- Link preview (WhatsApp / Facebook / Messenger / Telegram) -->
+<meta name="description" content="Log in to your SVCN account to see your dues, pay by bKash, download receipts and check your connection.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Satellite Vision Cable Network">
+<meta property="og:title" content="SVCN Customer Portal">
+<meta property="og:description" content="Check your dues, pay your bill, download receipts and see your connection status.">
+<meta property="og:url" content="https://satellitevisioncablenetwork.netlify.app/portal.html">
+<meta property="og:image" content="https://satellitevisioncablenetwork.netlify.app/portal-preview.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta property="og:image:alt" content="SVCN - Satellite Vision Cable Network">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SVCN Customer Portal">
+<meta name="twitter:description" content="Check your dues, pay your bill, download receipts and see your connection status.">
+<meta name="twitter:image" content="https://satellitevisioncablenetwork.netlify.app/portal-preview.jpg">
 </head>
 <body>
 <div class="hero-band"></div>
@@ -739,9 +755,18 @@ async function renderMonthlyLedger(){
     .eq('customer_id', currentCustomer.id).gte('billing_month', PORTAL_HISTORY_START)
     .order('billing_month', { ascending:false }).limit(24);
   const el = document.getElementById('histList');
-  if (!rows || !rows.length){ el.innerHTML = '<p class="hint">No billing history yet.</p>'; return; }
 
-  el.innerHTML = rows.map(r => {
+  // Months before the start month stay hidden, but any unpaid balance from them is still shown as one line
+  const { data: older } = await db.from('billing_ledger_status').select('balance')
+    .eq('customer_id', currentCustomer.id).lt('billing_month', PORTAL_HISTORY_START).gt('balance', 0);
+  const earlier = (older || []).reduce((s, r) => s + (Number(r.balance) || 0), 0);
+  const earlierRow = earlier > 0
+    ? `<div class="month-row"><div><p class="m">Earlier dues</p><p class="meth">${fmt(earlier)} carried forward</p></div><span class="pill due">Due</span></div>`
+    : '';
+
+  if ((!rows || !rows.length) && !earlierRow){ el.innerHTML = '<p class="hint">No billing history yet.</p>'; return; }
+
+  el.innerHTML = (rows || []).map(r => {
     const label = new Date(String(r.billing_month).slice(0,7) + '-01').toLocaleString('en', { month:'long', year:'numeric', timeZone:'UTC' });
     const billed = Number(r.amount_billed)||0, paid = Number(r.amount_paid)||0, bal = Number(r.balance)||0;
     if (r.status === 'paid'){
@@ -751,7 +776,7 @@ async function renderMonthlyLedger(){
       return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${fmt(paid)} of ${fmt(billed)} · ${fmt(bal)} left${r.grace_expired ? ' · overdue' : ''}</p></div><span class="pill partial">Partial</span></div>`;
     }
     return `<div class="month-row"><div><p class="m">${label}</p><p class="meth">${fmt(bal)} due${r.grace_expired ? ' · overdue' : ''}</p></div><span class="pill due">Due</span></div>`;
-  }).join('');
+  }).join('') + earlierRow;
 }
 
 // ---- Receipts (real payments only — adjustment entries have no receipt) ----
