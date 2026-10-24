@@ -213,6 +213,7 @@
     <div class="tab" data-tab="customers" onclick="switchTab('customers')">Customers</div>
     <div class="tab" data-tab="reminders" onclick="switchTab('reminders')">Reminders</div>
     <div class="tab" data-tab="ledger" onclick="switchTab('ledger')">Ledger</div>
+    <div class="tab" data-tab="leads" onclick="switchTab('leads')">Leads<span id="leadsBadge" class="pill due" style="display:none;margin-left:6px;padding:1px 7px;font-size:11px;">0</span></div>
     <div class="tab" data-tab="transactions" onclick="switchTab('transactions')">Transactions</div>
     <div class="tab" data-tab="verifications" onclick="switchTab('verifications')">Verifications<span class="tab-dot" id="verifDot"></span></div>
     <div class="tab" data-tab="tickets" onclick="switchTab('tickets')">Tickets<span class="tab-dot" id="ticketDot"></span></div>
@@ -304,6 +305,20 @@
       </div>
       <p class="hint" style="margin:0 0 14px;">One cell per customer per month. Green &#10003; = paid, amber = partly paid (amount still owed), red = unpaid. A "!" means the one-month grace has run out. Hover a cell for billed vs paid.</p>
       <div class="table-wrap"><table id="ledgerTable"></table></div>
+    </div>
+  </div>
+
+  <div id="tab-leads" style="display:none;">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+        <h3 style="margin:0;">Connection requests</h3>
+        <span class="hint" id="leadSummary"></span>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">People who filled in the "Request a connection" form on your packages page. New ones are listed first.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>When</th><th>Contact</th><th>Address</th><th>Package &amp; notes</th><th>Status</th></tr></thead>
+        <tbody id="leadRows"></tbody>
+      </table></div>
     </div>
   </div>
 
@@ -874,7 +889,7 @@ function initSupabase(){
   return true;
 }
 
-const TABS = ['dashboard','customers','reminders','ledger','transactions','verifications','tickets','money','settings'];
+const TABS = ['dashboard','customers','reminders','ledger','leads','transactions','verifications','tickets','money','settings'];
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===name) ? '' : 'none'; });
@@ -883,6 +898,7 @@ function switchTab(name){
   if (name==='settings'){ loadTemplates(); loadSyncStatus(); loadRecurringExpenses(); }
   if (name==='reminders') loadReminders();
   if (name==='ledger') loadLedger();
+  if (name==='leads') loadLeads();
   if (name==='verifications') loadVerifications();
   if (name==='tickets') loadTickets();
 }
@@ -1197,6 +1213,48 @@ async function loadLedger(){
     '<tr><td><strong>Outstanding</strong></td>' + billedT.map((v,i) => `<td style="text-align:center;color:var(--red);font-weight:600;">${fmt(v - paidT[i])}</td>`).join('') + '</tr>';
 
   table.innerHTML = head + body + foot;
+}
+
+// ---- Leads (website "Request a connection" form) ----
+const LEAD_STATUS = { new:'New', contacted:'Contacted', connected:'Connected', not_interested:'Not interested' };
+const leadEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function bdWaPhone(p){ let d = String(p||'').replace(/\D/g,''); if (d.startsWith('0')) d = '88' + d; return d; }
+function fetchLeads(){ return db.rpc('leads_list', { p_user: currentAdmin.username, p_pass: currentAdmin.password }); }
+function setLeadsBadge(n){ const b = document.getElementById('leadsBadge'); b.textContent = n; b.style.display = n ? '' : 'none'; }
+async function refreshLeadsBadge(){
+  if (!currentAdmin) return;
+  try {
+    const { data, error } = await fetchLeads();
+    if (!error) setLeadsBadge((data||[]).filter(l => l.status === 'new').length);
+  } catch(e){}
+}
+async function loadLeads(){
+  const rows = document.getElementById('leadRows');
+  const { data, error } = await fetchLeads();
+  if (error){ rows.innerHTML = `<tr><td class="hint" colspan="5">Leads aren't available yet (${leadEsc(error.message)}). Run svcn_04_leads.sql in Supabase.</td></tr>`; return; }
+  const list = data || [];
+  const fresh = list.filter(l => l.status === 'new').length;
+  setLeadsBadge(fresh);
+  document.getElementById('leadSummary').textContent = list.length ? `${list.length} request(s) · ${fresh} new` : '';
+  if (!list.length){ rows.innerHTML = '<tr><td class="hint" colspan="5">No requests yet. Share your packages page to start getting them.</td></tr>'; return; }
+  rows.innerHTML = list.map(l => {
+    const when = new Date(l.created_at).toLocaleString('en', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit' });
+    const wa = waLink(bdWaPhone(l.phone), `Assalamu alaikum ${l.name}, this is Satellite Vision (SVCN). Thank you for asking about a connection${l.package ? ' (' + l.package + ')' : ''}. When would be a good time to talk?`);
+    const opts = Object.entries(LEAD_STATUS).map(([k,v]) => `<option value="${k}" ${l.status === k ? 'selected' : ''}>${v}</option>`).join('');
+    const addr = [l.road, l.house].filter(Boolean).map(leadEsc).join(', ') || '—';
+    return `<tr>
+      <td class="muted">${when}</td>
+      <td><strong>${leadEsc(l.name)}</strong><br><a href="tel:${leadEsc(l.phone)}" class="muted">${leadEsc(l.phone)}</a> · <a href="${wa}" target="_blank" rel="noopener">WhatsApp</a></td>
+      <td>${addr}</td>
+      <td>${leadEsc(l.package || '—')}${l.wants_dish ? '<br><span class="pill adjusted">+ Dish TV</span>' : ''}${l.message ? '<br><span class="hint">' + leadEsc(l.message) + '</span>' : ''}</td>
+      <td><select onchange="setLeadStatus('${l.id}', this.value)" style="width:auto;padding:6px 8px;">${opts}</select></td>
+    </tr>`;
+  }).join('');
+}
+async function setLeadStatus(id, status){
+  const { error } = await db.rpc('lead_set_status', { p_user: currentAdmin.username, p_pass: currentAdmin.password, p_id: id, p_status: status });
+  if (error) alert(error.message);
+  loadLeads();
 }
 
 // ---- Guided bulk WhatsApp reminders ----
@@ -2249,6 +2307,8 @@ function bootApp(){
   loadCustomers();
   loadDashboard();
   loadReminderTemplate();
+  refreshLeadsBadge();
+  if (!window._leadsTimer) window._leadsTimer = setInterval(refreshLeadsBadge, 60000);
 }
 
 async function tryResumeAdminSession(){
